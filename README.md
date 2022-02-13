@@ -36,7 +36,7 @@ opportunity for bad practice filenames.
 
 ## todos
 - [x] use case 1
-- [ ] zig build
+- [x] zig build
 - [ ] test data
 - [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented
 - [ ] use case 2

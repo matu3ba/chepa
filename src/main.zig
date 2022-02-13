@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const ascii = std.ascii;
 const fs = std.fs;
@@ -7,7 +8,7 @@ const process = std.process;
 const stdout = std.io.getStdOut();
 
 const usage: []const u8 =
-    \\Usage: chepa path1 [path2 ..]
+    \\ path1 [path2 ..]
 ;
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
@@ -82,13 +83,11 @@ pub fn main() !void {
     const args: [][:0]u8 = try process.argsAlloc(arena);
     defer process.argsFree(arena, args);
     if (args.len <= 1) {
-        try stdout.writer().print("{s}\n", .{usage});
+        try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
     }
     // 2. recursively check children of each given path
     // * output sanitized for ascii escape sequences on default
-    // * output usable for vim
-    // - assume: input is not root dir (`/` on unix and `X:` on windows)
-    // - TODO: fix this shortcoming
+    // * output usable in vim and shell
     var found_ctrlchars = false;
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
@@ -103,6 +102,20 @@ pub fn main() !void {
             const realpath = try fs.realpathAlloc(arena, root_path);
             defer arena.free(realpath);
             var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
+
+            // TODO: test this in CI
+            // windows root path?
+            const native_os = builtin.target.os.tag;
+            switch (native_os) {
+                .windows => {
+                    if (0x61 <= it.buffer[0] and it.buffer[0] <= 0x7A // A-Z
+                    and it.buffer[1] == ':') {
+                        it.next();
+                    }
+                },
+                else => {},
+            }
+
             while (it.next()) |entry| {
                 if (entry.len == 0 or isFilenamePortAscii(entry) == false) {
                     var has_ctrlchars = false;
