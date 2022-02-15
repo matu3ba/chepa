@@ -18,10 +18,30 @@ pub fn build(b: *std.build.Builder) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    // test
+    // unit tests
     const exe_tests = b.addTest("src/main.zig");
     exe_tests.setTarget(target);
     exe_tests.setBuildMode(mode);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
+
+    // build and run binary to create test folders
+    // stage1: panic from build system, if executable is non-existing
+    //const tfgen = b.addExecutable("tfgen", "src/testfolder_gen.zig");
+    const tfgen = b.addExecutable("tfgen", "src/testfolder_gen.zig");
+    tfgen.setTarget(target);
+    tfgen.setBuildMode(mode);
+    tfgen.install();
+
+    const run_tfgen = tfgen.run();
+    run_tfgen.step.dependOn(b.getInstallStep());
+    const tfgen_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
+    run_tfgen.addArgs(&.{tfgen_arg});
+    const run_tfgen_step = b.step("tfgen", "Test folders generation");
+    run_tfgen_step.dependOn(&run_tfgen.step);
+
+    // integration tests
+    // TODO
+    //const run_tftest_step = b.step("tftest", "Test folders testing");
+    //std.debug.print("{s}\n", .{b.build_root});
 }

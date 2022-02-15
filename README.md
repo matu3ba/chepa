@@ -37,7 +37,9 @@ opportunity for bad practice filenames.
 ## todos
 - [x] use case 1
 - [x] zig build
-- [ ] test data
+- [ ] test base perf: 10000 folders each with 0 or 10 subfolders
+- [ ] test control sequences: add such folders
+- [ ] test bad patterns: add such folders
 - [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented
 - [ ] use case 2
 - [ ] use case 3

@@ -86,7 +86,7 @@ pub fn main() !void {
         try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
     }
     // 2. recursively check children of each given path
-    // * output sanitized for ascii escape sequences on default
+    // * output sanitized for ascii escape sequences and control characters on default
     // * output usable in vim and shell
     var found_ctrlchars = false;
     var i: u64 = 1; // skip program name
@@ -139,7 +139,7 @@ pub fn main() !void {
         }
 
         log.debug("reading (recursively) file '{s}'", .{root_path});
-        var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true }) catch |err| {
+        var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),
             });
