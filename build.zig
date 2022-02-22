@@ -15,8 +15,8 @@ pub fn build(b: *std.build.Builder) void {
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args|
         run_cmd.addArgs(args);
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    const run_cmd_step = b.step("run", "Run the app");
+    run_cmd_step.dependOn(&run_cmd.step);
 
     // unit tests
     const exe_tests = b.addTest("src/main.zig");
@@ -41,7 +41,11 @@ pub fn build(b: *std.build.Builder) void {
     run_tfgen_step.dependOn(&run_tfgen.step);
 
     // integration tests
-    // TODO
-    //const run_tftest_step = b.step("tftest", "Test folders testing");
-    //std.debug.print("{s}\n", .{b.build_root});
+    const run_inttest = exe.run();
+    run_inttest.step.dependOn(run_cmd_step);
+    run_inttest.step.dependOn(run_tfgen_step);
+    const inttest_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
+    run_inttest.addArgs(&.{inttest_arg});
+    const run_inttest_step = b.step("inttest", "Run integration tests");
+    run_inttest_step.dependOn(&run_inttest.step);
 }
