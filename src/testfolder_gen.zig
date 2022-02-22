@@ -39,11 +39,32 @@ fn ensureDir(path: []const u8) !void {
     };
 }
 
+fn ensureFile(path: []const u8) !void {
+    var file = std.fs.cwd().createFile(path, .{
+        .read = true,
+    }) catch |err| switch (err) {
+        error.PathAlreadyExists => {
+            return; // TODO open file to ensure things work correctly
+        },
+        else => {
+            fatal("unable to create test file '{s}': {s}", .{
+                path, @errorName(err),
+            });
+        },
+    };
+    defer file.close();
+    const stat = try file.stat();
+    if (stat.kind != .File)
+        fatal("stat on test file '{s}' failed", .{path});
+}
+
 // assume: nesting < 10
 fn addEnsurePathDir(path_buf: []u8, n_pbuf: *u64, nr: u8, nesting: *u8) !void {
     const slash: u8 = '/';
-    const char_of_dig = fmt.digitToChar(nr, fmt.Case.lower);
-    const str_nr: []const u8 = &[2]u8{ slash, char_of_dig };
+
+    // workaround: comptime-connect strings with start and end offset
+    // "continuous enum" => number*2 => (start,end) into static buffer for entries
+    const str_nr: []const u8 = &[2]u8{ slash, nr };
     mem.copy(u8, path_buf[n_pbuf.*..], str_nr);
     n_pbuf.* += str_nr.len;
     try ensureDir(path_buf[0..n_pbuf.*]);
@@ -96,13 +117,17 @@ fn add(comptime UT: type, cust_nr: []UT, base: UT, path_buf: []u8, n_pbuf: *u64,
         std.debug.assert(dir_index == index);
         //std.debug.print("path_buf before ensureDir: {s}\n", .{path_buf[0..n_pbuf.*]});
         // replacement of dir at index
-        try addEnsurePathDir(path_buf, n_pbuf, cust_nr[index], nesting);
+        const char_of_dig = fmt.digitToChar(cust_nr[index], fmt.Case.lower);
+        try addEnsurePathDir(path_buf, n_pbuf, char_of_dig, nesting);
         dir_index += 1; // update index after appending dir to point to new dir
         //std.debug.print("nesting after addEnsurePathDir : {d}\n", .{nesting.*});
         //std.debug.print("dir_index : {d}\n", .{dir_index});
         // ensure zero dirs until nesting = cust_nr.len
-        while (dir_index < cust_nr.len) : (dir_index += 1)
-            try addEnsurePathDir(path_buf, n_pbuf, 0, nesting); // add 0 dirs
+        while (dir_index < cust_nr.len) : (dir_index += 1) {
+            const char0 = fmt.digitToChar(0, fmt.Case.lower);
+            try addEnsurePathDir(path_buf, n_pbuf, char0, nesting); // add 0 dirs
+
+        }
         std.debug.assert(nesting.* == cust_nr.len);
     }
 
@@ -117,7 +142,6 @@ fn add(comptime UT: type, cust_nr: []UT, base: UT, path_buf: []u8, n_pbuf: *u64,
     return true;
 }
 
-// TODO upstream with tests to libstd, but
 fn digitsToChars(buf: []u8, case: fmt.Case) void {
     var char: u8 = undefined;
     for (buf) |digit, i| {
@@ -190,7 +214,8 @@ pub fn main() !void {
             var nesting: u8 = 0;
             var i: u64 = 0;
             while (i < cust_nr.len) : (i += 1) {
-                try addEnsurePathDir(&path_buffer, &n_pbuf, 0, &nesting);
+                const char_of_dig = fmt.digitToChar(0, fmt.Case.lower);
+                try addEnsurePathDir(&path_buffer, &n_pbuf, char_of_dig, &nesting);
             }
             // cust_nr now represents the ensured path structure
             i = 0;
@@ -209,24 +234,69 @@ pub fn main() !void {
             std.debug.assert(nesting == 0);
         }
     }
-    std.debug.print("base_perf_path: {s}\n", .{path_buffer[0..n_pbuf]});
 
-    // 1.2 control_sequences
+    // 1.2 control_sequences (0x00..0x31 and 0x7F)
+    // to keep things simple, we create direcories with d_controlsequence
+    // and files with f_controlsequences inside folder control_sequences
     {
         const path2: []const u8 = "/control_sequences";
         mem.copy(u8, path_buffer[n_pbuf..], path2);
         n_pbuf += path2.len;
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path2.len;
-    }
+        {
+            // 1. directories
+            var tmpbuf = "/d_2".*;
+            //tmpbuf[2] = 0x00; // cannot access memory at addres 0x0/null
+            tmpbuf[3] = 0x03;
+            var i: u8 = 1;
+            while (i < 32) : (i += 1) {
+                mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                n_pbuf += tmpbuf.len;
+                try ensureDir(path_buffer[0..n_pbuf]);
+                n_pbuf -= tmpbuf.len;
+                tmpbuf[3] = i;
+            }
+            tmpbuf[3] = 0x7F;
+            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            n_pbuf += tmpbuf.len;
+            try ensureDir(path_buffer[0..n_pbuf]);
+            n_pbuf -= tmpbuf.len;
 
-    // bad_patterns
+            // 2. files
+            tmpbuf[1] = 'f'; // f_symbol
+            //tmpbuf[2] = 0x00; // cannot access memory at addres 0x0/null
+            tmpbuf[3] = 0x01;
+            i = 1;
+            while (i < 32) : (i += 1) {
+                mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                n_pbuf += tmpbuf.len;
+                try ensureFile(path_buffer[0..n_pbuf]);
+                n_pbuf -= tmpbuf.len;
+                tmpbuf[3] = i;
+            }
+            tmpbuf[3] = 0x7F;
+            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            n_pbuf += tmpbuf.len;
+            try ensureFile(path_buffer[0..n_pbuf]);
+            n_pbuf -= tmpbuf.len;
+        }
+    }
+    std.debug.print("control_sequences: {s}\n", .{path_buffer[0..n_pbuf]});
+
+    // TODO array of arrays
+    //const bad_patterns =
+    // bad_patterns (' fname', 'fname ', '~fname', '-fname', 'f1 -f2')
     {
         const path3: []const u8 = "/bad_patterns";
         mem.copy(u8, path_buffer[n_pbuf..], path3);
         n_pbuf += path3.len;
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path3.len;
+        {
+            // we use for filenames fname and directory names dname
+
+        }
     }
 
     try stdout.writer().print("test creation finished\n", .{});
