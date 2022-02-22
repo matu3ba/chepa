@@ -79,8 +79,10 @@ Unfortunately path delimitors need to be special cased:
 
 Control characters (`0x1-0x31,0x7f`) may get escaped by the library or
 operating system, which would look like:
+```txt
 d_\u{b}  d_\r     d_\u{4}  d_\u{8}   d_\u{11}  d_\u{15}  d_\u{19}  d_\u{1d}
 d_\n     d_\u{1}  d_\u{5}  d_\u{e}   d_\u{12}  d_\u{16}  d_\u{1a}  d_\u{1e}
 d_\t     d_\u{2}  d_\u{6}  d_\u{f}   d_\u{13}  d_\u{17}  d_\u{1b}  d_\u{7f}
 d_\u{c}  d_\u{3}  d_\u{7}  d_\u{10}  d_\u{14}  d_\u{18}  d_\u{1c}
+```
 `0x0` should crash the file/folder generation command.
