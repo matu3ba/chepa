@@ -150,6 +150,7 @@ pub fn main() !void {
         defer walker.deinit();
         while (try walker.next()) |entry| {
             const basename = entry.basename;
+            log.debug("file '{s}'", .{basename});
             if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
                 var has_ctrlchars = false;
                 for (basename) |char| {

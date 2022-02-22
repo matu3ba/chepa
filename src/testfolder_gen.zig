@@ -16,7 +16,7 @@ const fmt = std.fmt;
 
 // 2. control_sequences 0x00..0x31 and 0x7F
 
-// 3. bad_patterns ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
+// 3. bad_patterns like ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
 
 const usage: []const u8 =
     \\ path
@@ -282,11 +282,19 @@ pub fn main() !void {
             n_pbuf -= tmpbuf.len;
         }
     }
-    std.debug.print("control_sequences: {s}\n", .{path_buffer[0..n_pbuf]});
-
-    // TODO array of arrays
-    //const bad_patterns =
-    // bad_patterns (' fname', 'fname ', '~fname', '-fname', 'f1 -f2')
+    // 1.3 bad_patterns like ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
+    const bad_patterns = [_][]const u8{
+        "/ fname",
+        "/fname ",
+        "/~fname",
+        "/-fname",
+        "/--fname",
+        "/fname1 ~fname2",
+        "/fname1 -fname2",
+        "/fname1 --fname2",
+        // TODO extend this list
+        // TODO think of bad patterns in utf8
+    };
     {
         const path3: []const u8 = "/bad_patterns";
         mem.copy(u8, path_buffer[n_pbuf..], path3);
@@ -294,8 +302,12 @@ pub fn main() !void {
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path3.len;
         {
-            // we use for filenames fname and directory names dname
-
+            for (bad_patterns) |pattern| {
+                mem.copy(u8, path_buffer[n_pbuf..], pattern[0..]);
+                n_pbuf += pattern.len;
+                try ensureDir(path_buffer[0..n_pbuf]);
+                n_pbuf -= pattern.len;
+            }
         }
     }
 
