@@ -4,6 +4,7 @@ const ascii = std.ascii;
 const fs = std.fs;
 const log = std.log;
 const mem = std.mem;
+const os = std.os;
 const process = std.process;
 const stdout = std.io.getStdOut();
 
@@ -85,6 +86,10 @@ pub fn main() !void {
     if (args.len <= 1) {
         try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
     }
+
+    // tmp data for realpath(), never to be references otherwise
+    var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
+
     // 2. recursively check children of each given path
     // * output sanitized for ascii escape sequences and control characters on default
     // * output usable in vim and shell
@@ -99,8 +104,9 @@ pub fn main() !void {
         {
             // ensure that super path does not contain any
             // control characters, that might get printed later
-            const realpath = try fs.realpathAlloc(arena, root_path);
-            defer arena.free(realpath);
+            // TODO document `realpathAlloc` and `realpath` assume relative path is
+            // given from cwd() of process
+            const real_path = try os.realpath(root_path, &tmp_buf);
             var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
 
             // TODO: test this in CI
@@ -125,12 +131,12 @@ pub fn main() !void {
                     }
                     if (has_ctrlchars) {
                         found_ctrlchars = true;
-                        try stdout.writeAll("realpath of '");
+                        try stdout.writeAll("real_path of '");
                         try stdout.writeAll(root_path);
                         try stdout.writeAll("' has control characters in its absolute path \n");
                     } else {
                         try stdout.writeAll("'");
-                        try stdout.writeAll(realpath);
+                        try stdout.writeAll(real_path);
                         try stdout.writeAll("' has non-portable ascii symbols\n");
                     }
                     std.process.exit(1);
@@ -151,6 +157,8 @@ pub fn main() !void {
         while (try walker.next()) |entry| {
             const basename = entry.basename;
             log.debug("file '{s}'", .{basename});
+            if (basename[0] == 'f' and basename[1] == '_')
+                try std.fs.cwd().writeFile("tmp.debug", basename); // DEBUG
             if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
                 var has_ctrlchars = false;
                 for (basename) |char| {
@@ -158,13 +166,11 @@ pub fn main() !void {
                         has_ctrlchars = true;
                 }
 
-                // perf: do we have the handle with `walker` and can then
-                // use or implement anything along `cwd().realpathAlloc('..')` ?
                 const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
-                const p_sup_dir = try mem.concat(arena, u8, &.{ entry.path, super_dir });
+                // realpath requires relative path from cwd() of process
+                const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
                 defer arena.free(p_sup_dir);
-                const rl_sup_dir = try fs.realpathAlloc(arena, p_sup_dir);
-                defer arena.free(rl_sup_dir);
+                const rl_sup_dir = try os.realpath(p_sup_dir, &tmp_buf);
 
                 if (has_ctrlchars) {
                     found_ctrlchars = true;

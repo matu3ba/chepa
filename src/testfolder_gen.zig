@@ -1,11 +1,12 @@
 //! program to ensure folder structure for tests on disk
 const std = @import("std");
-const process = std.process;
+const Barr = std.BoundedArray;
+const fmt = std.fmt;
 const log = std.log;
 const mem = std.mem;
-const Barr = std.BoundedArray;
+const os = std.os;
+const process = std.process;
 const stdout = std.io.getStdOut();
-const fmt = std.fmt;
 // 1. base_perf
 // each folder has either 0 or 10 subfolders
 // tree structure: last nesting level has 0 folders, others have 10 folders
@@ -313,3 +314,14 @@ pub fn main() !void {
 
     try stdout.writer().print("test creation finished\n", .{});
 }
+
+test "use of realpath instead of realpathAlloc" {
+    // to be called after running `zig test tfgen`
+    // realpath utilizes the cwd() of the current process (undocumented in libstd)
+    const path_name: []const u8 = "test_folders/bad_patterns/ fname/.."; // adding \x00 breaks things
+    var out_buf: [4096]u8 = undefined;
+    const real_path = try os.realpath(path_name, &out_buf); // works
+    std.debug.print("real_path: {s}\n", .{real_path});
+}
+
+// TODO test cases with escaped path delimiter, ie blabla\/blabla
