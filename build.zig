@@ -32,20 +32,33 @@ pub fn build(b: *std.build.Builder) void {
     tfgen.setTarget(target);
     tfgen.setBuildMode(mode);
     tfgen.install();
-
-    const run_tfgen = tfgen.run();
+    const run_tfgen = tfgen.run(); // integration test generation
     run_tfgen.step.dependOn(b.getInstallStep());
     const tfgen_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
     run_tfgen.addArgs(&.{tfgen_arg});
     const run_tfgen_step = b.step("tfgen", "Test folders generation");
-    run_tfgen_step.dependOn(&run_tfgen.step);
-
-    // integration tests
-    const run_inttest = exe.run();
-    run_inttest.step.dependOn(run_cmd_step);
+    run_tfgen_step.dependOn(&run_tfgen.step); // integration test generation
+    const run_inttest = exe.run(); // integration tests
     run_inttest.step.dependOn(run_tfgen_step);
     const inttest_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
     run_inttest.addArgs(&.{inttest_arg});
     const run_inttest_step = b.step("inttest", "Run integration tests");
-    run_inttest_step.dependOn(&run_inttest.step);
+    run_inttest_step.dependOn(&run_inttest.step); // integration tests
+
+    const perfgen = b.addExecutable("perfgen", "src/perffolder_gen.zig");
+    perfgen.setTarget(target);
+    perfgen.setBuildMode(mode);
+    perfgen.install();
+    const run_perfgen = perfgen.run(); // perf bench data generation
+    run_perfgen.step.dependOn(b.getInstallStep());
+    const perfgen_arg = b.pathJoin(&.{ b.build_root, "perf_folders" });
+    run_perfgen.addArgs(&.{perfgen_arg});
+    const run_perfgen_step = b.step("perfgen", "Perf benchmark folders generation (requires ~440MB memory)");
+    run_perfgen_step.dependOn(&run_perfgen.step); // perf bench data generation
+    //const run_perfbench = exe.run(); // run perf benchmarks
+    //run_perfbench.step.dependOn(run_perfgen_step);
+    //const perfbench_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
+    //run_perfbench.addArgs(&.{perfbench_arg});
+    //const run_perfbench_step = b.step("inttest", "Run integration tests");
+    //run_perfbench_step.dependOn(&run_perfbench.step); // run perf benchmarks
 }
