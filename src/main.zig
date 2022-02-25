@@ -8,8 +8,12 @@ const os = std.os;
 const process = std.process;
 const stdout = std.io.getStdOut();
 
+const testing = std.testing;
+
 const usage: []const u8 =
     \\ path1 [path2 ..]
+    \\ Shells may not show control characters correctly or misbehave.
+    \\ '0x00' (0) is not representable.
 ;
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
@@ -89,6 +93,8 @@ pub fn main() !void {
 
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
+    const cwd = try process.getCwdAlloc(arena); // windows compatibility
+    defer arena.free(cwd);
 
     // 2. recursively check children of each given path
     // * output sanitized for ascii escape sequences and control characters on default
@@ -156,9 +162,9 @@ pub fn main() !void {
         defer walker.deinit();
         while (try walker.next()) |entry| {
             const basename = entry.basename;
-            log.debug("file '{s}'", .{basename});
-            if (basename[0] == 'f' and basename[1] == '_')
-                try std.fs.cwd().writeFile("tmp.debug", basename); // DEBUG
+            //log.debug("file '{s}'", .{basename}); // fails at either d_\t/\n\r\v\f
+            //std.debug.print("basename[2]: {d}\n", .{basename[2]});
+
             if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
                 var has_ctrlchars = false;
                 for (basename) |char| {
@@ -167,28 +173,71 @@ pub fn main() !void {
                 }
 
                 const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
-                // realpath requires relative path from cwd() of process
                 const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
                 defer arena.free(p_sup_dir);
-                const rl_sup_dir = try os.realpath(p_sup_dir, &tmp_buf);
+                //std.debug.print("resolvePosix(arena, {s})\n", .{p_sup_dir});
+                // `realpath` requires relative path from cwd() of process
+                // `realpath` does not work on files with postfixed `..`
+                const rl_sup_dir = try fs.path.resolve(arena, &.{p_sup_dir});
+                defer arena.free(rl_sup_dir);
+                const rl_sup_dir_rel = try fs.path.relative(arena, cwd, rl_sup_dir);
+                defer arena.free(rl_sup_dir_rel);
+                //std.debug.print("fs.path.resolve result: '{s}'\n", .{rl_sup_dir});
 
                 if (has_ctrlchars) {
                     found_ctrlchars = true;
                     // root folder is without control characters or terminate
                     // program would have been terminated
                     try stdout.writeAll("'");
-                    try stdout.writeAll(rl_sup_dir);
-                    try stdout.writeAll("' has subfolder with control characters\n");
+                    try stdout.writeAll(rl_sup_dir_rel);
+                    try stdout.writeAll("' has file with ctrl chars\n");
                 } else {
                     try stdout.writeAll("'");
                     try stdout.writeAll(entry.path);
-                    try stdout.writeAll("' has non-portable ascii symbols\n");
+                    try stdout.writeAll("' has non-portable ascii chars\n");
                 }
             }
         }
     }
-    if (found_ctrlchars) {
-        try stdout.writeAll("WARNING: Do __NOT__ use the shell to inspect control characters");
-        try stdout.writeAll("Use a (graphical) file manager or tool to remove or rename them");
-    }
+}
+
+test "resolvePosix" {
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x01/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x02/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x03/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x04/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x05/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x06/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x07/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x08/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x09/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0a/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0b/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0c/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0d/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0e/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0f/", ".." }, "/test_folders/control_sequences"); // 15
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x10/", ".." }, "/test_folders/control_sequences"); // 16
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x11/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x12/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x13/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x14/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x15/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x16/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x17/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x18/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x19/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1a/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1b/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1c/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1d/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1e/", ".." }, "/test_folders/control_sequences");
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1f/", ".." }, "/test_folders/control_sequences"); // 31
+    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x7f/", ".." }, "/test_folders/control_sequences");
+}
+
+fn testResolvePosix(paths: []const []const u8, expected: []const u8) !void {
+    const actual = try fs.path.resolvePosix(testing.allocator, paths);
+    defer testing.allocator.free(actual);
+    try testing.expect(mem.eql(u8, actual, expected));
 }

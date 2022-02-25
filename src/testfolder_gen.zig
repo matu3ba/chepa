@@ -91,7 +91,7 @@ pub fn main() !void {
             // 1. directories
             var tmpbuf = "/d_2".*;
             //tmpbuf[2] = 0x00; // cannot access memory at addres 0x0/null
-            tmpbuf[3] = 0x03;
+            tmpbuf[3] = 0x01;
             var i: u8 = 1;
             while (i < 32) : (i += 1) {
                 mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
