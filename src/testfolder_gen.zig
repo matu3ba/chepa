@@ -11,6 +11,7 @@ const stdout = std.io.getStdOut();
 // 1. ensure test_folders existence
 // 2. control_sequences 0x00..0x31 and 0x7F
 // 3. bad_patterns like ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
+// * test code __can not__ ensure traversal order
 
 const usage: []const u8 =
     \\ path
@@ -135,6 +136,7 @@ pub fn main() !void {
         "/fname1 ~fname2",
         "/fname1 -fname2",
         "/fname1 --fname2",
+        // TODO test cases with escaped path delimiter, ie blabla\/blabla
         // TODO extend this list
         // TODO think of bad patterns in utf8
     };
@@ -166,4 +168,7 @@ test "use of realpath instead of realpathAlloc" {
     std.debug.print("real_path: {s}\n", .{real_path});
 }
 
-// TODO test cases with escaped path delimiter, ie blabla\/blabla
+test "all bad patterns and control sequences are found without duplicates" {
+    // to be called after running `zig test tfgen`
+    // TODO
+}
