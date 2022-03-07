@@ -7,11 +7,14 @@ const mem = std.mem;
 const os = std.os;
 const process = std.process;
 const stdout = std.io.getStdOut();
+const stderr = std.io.getStdErr();
 
 const testing = std.testing;
 
 const usage: []const u8 =
-    \\ path1 [path2 ..]
+    \\ [options] path1 [path2 ..]
+    \\ options:
+    \\ -outfile file    write output to file instead to stdout
     \\ Shells may not show control characters correctly or misbehave.
     \\ '0x00' (0) is not representable.
 ;
@@ -80,6 +83,12 @@ fn isFilenamePortAscii(path: []const u8) bool {
     return true;
 }
 
+const Cli = struct {
+    write_file: ?std.fs.File = null,
+};
+
+// assume: no file `-outfile` exists
+// assume: user specifies non-overlapping input paths
 pub fn main() !void {
     // 1. read path names from cli args
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -89,6 +98,11 @@ pub fn main() !void {
     defer process.argsFree(arena, args);
     if (args.len <= 1) {
         try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
+        std.process.exit(1);
+    }
+    if (args.len >= 255) {
+        try stdout.writer().writeAll("At maximum 255 arguments are supported\n");
+        std.process.exit(1);
     }
 
     // tmp data for realpath(), never to be references otherwise
@@ -96,22 +110,40 @@ pub fn main() !void {
     const cwd = try process.getCwdAlloc(arena); // windows compatibility
     defer arena.free(cwd);
 
+    var cli = Cli{};
+
+    var i: u64 = 1; // skip program name
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "-outfile")) {
+            if (i + 1 >= args.len) {
+                //stderr.writeAll("invalid argument for '-outfile'\n");
+                return error.InvalidArgument;
+            }
+            i += 1;
+            cli.write_file = try std.fs.cwd().createFile(args[i], .{});
+        }
+    }
+    defer if (cli.write_file != null)
+        cli.write_file.?.close();
+
     // 2. recursively check children of each given path
     // * output sanitized for ascii escape sequences and control characters on default
     // * output usable in vim and shell
     var found_ctrlchars = false;
-    var i: u64 = 1; // skip program name
+    var found_newline = false;
+    i = 1; // skip program name
     while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
+            i += 1;
+            continue;
+        }
         // perf of POSIX/Linux nftw, Rust walkdir and find are comparable.
         // zig libstd offers higher perf for less convenience with optimizations
         // see https://github.com/romkatv/gitstatus/blob/master/docs/listdir.md
-
         const root_path = args[i];
         {
             // ensure that super path does not contain any
             // control characters, that might get printed later
-            // TODO document `realpathAlloc` and `realpath` assume relative path is
-            // given from cwd() of process
             const real_path = try os.realpath(root_path, &tmp_buf);
             var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
 
@@ -131,20 +163,38 @@ pub fn main() !void {
             while (it.next()) |entry| {
                 if (entry.len == 0 or isFilenamePortAscii(entry) == false) {
                     var has_ctrlchars = false;
+                    var has_newline = false;
                     for (entry) |char| {
                         if (ascii.isCntrl(char))
                             has_ctrlchars = true;
+                        if (char == '\n')
+                            has_newline = true;
                     }
-                    if (has_ctrlchars) {
+                    if (has_ctrlchars)
                         found_ctrlchars = true;
-                        try stdout.writeAll("real_path of '");
-                        try stdout.writeAll(root_path);
-                        try stdout.writeAll("' has control characters in its absolute path \n");
+                    if (has_newline)
+                        found_newline = true;
+                    if (cli.write_file != null) {
+                        if (has_newline) {
+                            try cli.write_file.?.writeAll("'");
+                            try cli.write_file.?.writeAll(root_path);
+                            try cli.write_file.?.writeAll("' newline in absolute HERE\n");
+                        } else {
+                            try cli.write_file.?.writeAll(real_path);
+                            try cli.write_file.?.writeAll("\n");
+                        }
                     } else {
-                        try stdout.writeAll("'");
-                        try stdout.writeAll(real_path);
-                        try stdout.writeAll("' has non-portable ascii symbols\n");
+                        if (has_ctrlchars) {
+                            try stdout.writeAll("subfile of '");
+                            try stdout.writeAll(root_path);
+                            try stdout.writeAll("' has control characters in its absolute path\n");
+                        } else {
+                            try stdout.writeAll("'");
+                            try stdout.writeAll(real_path);
+                            try stdout.writeAll("' has non-portable ascii symbols\n");
+                        }
                     }
+                    if (cli.write_file != null) cli.write_file.?.close();
                     std.process.exit(1);
                 }
             }
@@ -152,6 +202,7 @@ pub fn main() !void {
 
         log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
+            if (cli.write_file != null) cli.write_file.?.close();
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),
             });
@@ -167,10 +218,17 @@ pub fn main() !void {
 
             if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
                 var has_ctrlchars = false;
+                var has_newline = false;
                 for (basename) |char| {
                     if (ascii.isCntrl(char))
                         has_ctrlchars = true;
+                    if (char == '\n')
+                        has_newline = true;
                 }
+                if (has_ctrlchars)
+                    found_ctrlchars = true;
+                if (has_newline)
+                    found_newline = true;
 
                 const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
                 const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
@@ -183,20 +241,32 @@ pub fn main() !void {
                 const rl_sup_dir_rel = try fs.path.relative(arena, cwd, rl_sup_dir);
                 defer arena.free(rl_sup_dir_rel);
                 //std.debug.print("fs.path.resolve result: '{s}'\n", .{rl_sup_dir});
-
-                if (has_ctrlchars) {
-                    found_ctrlchars = true;
-                    // root folder is without control characters or terminate
-                    // program would have been terminated
-                    try stdout.writeAll("'");
-                    try stdout.writeAll(rl_sup_dir_rel);
-                    try stdout.writeAll("' has file with ctrl chars\n");
+                // root folder is without control characters or terminate
+                // program would have been terminated
+                if (cli.write_file != null) {
+                    if (has_newline) {
+                        try cli.write_file.?.writeAll("'");
+                        try cli.write_file.?.writeAll(rl_sup_dir_rel);
+                        try cli.write_file.?.writeAll("' newline in subfile HERE\n");
+                    } else {
+                        try cli.write_file.?.writeAll(entry.path);
+                        try cli.write_file.?.writeAll("\n");
+                    }
                 } else {
-                    try stdout.writeAll("'");
-                    try stdout.writeAll(entry.path);
-                    try stdout.writeAll("' has non-portable ascii chars\n");
+                    if (has_ctrlchars) {
+                        try stdout.writeAll("'");
+                        try stdout.writeAll(rl_sup_dir_rel);
+                        try stdout.writeAll("' has file with ctrl chars\n");
+                    } else {
+                        try stdout.writeAll("'");
+                        try stdout.writeAll(entry.path);
+                        try stdout.writeAll("' has non-portable ascii chars\n");
+                    }
                 }
             }
+        }
+        if (found_newline and cli.write_file != null) {
+            try stdout.writeAll("found newlines, please manually resolve in output file\n");
         }
     }
 }

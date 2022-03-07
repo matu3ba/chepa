@@ -39,14 +39,17 @@ opportunity for bad practice filenames.
 - [x] zig build
 - [x] test base perf: 10000 folders each with 0 or 10 subfolders
 - [x] test control sequences: add such folders (fix #10920 to have nicer solution)
-- [ ] test bad patterns: add such folders
-- [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented
+- [x] test bad patterns: add such folders
+- [x] cli `-outfile`
+- [ ] integration tests with generated file
+- [ ] perf bench: cmds to invoke hyperfine with other contestors
 - [ ] use case 2
 - [ ] use case 3
 - [ ] test data
 - [ ] utf8
 - [ ] simd?
 - [ ] utf16
+- [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented
 
 ## obsoletion plan
 1. Ideally this library would be obsoleted by shells defaulting to
@@ -86,3 +89,12 @@ d_\t     d_\u{2}  d_\u{6}  d_\u{f}   d_\u{13}  d_\u{17}  d_\u{1b}  d_\u{7f}
 d_\u{c}  d_\u{3}  d_\u{7}  d_\u{10}  d_\u{14}  d_\u{18}  d_\u{1c}
 ```
 `0x0` should crash the file/folder generation command.
+
+Problems for storing problems for user-inspection and usage in tools
+* file/directory may have `'` or `\n`
+* reading line-wise or between delimiters does not work
+* reading between characters does not work
+* custom encoding to handle all case :(
+* special case of `\n`
+  - return in status code or user message
+  - cli text in offending line + `HERE` for easy search

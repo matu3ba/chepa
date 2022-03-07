@@ -40,8 +40,9 @@ pub fn build(b: *std.build.Builder) void {
     run_tfgen_step.dependOn(&run_tfgen.step); // integration test generation
     const run_inttest = exe.run(); // integration tests
     run_inttest.step.dependOn(run_tfgen_step);
+    const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
     const inttest_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
-    run_inttest.addArgs(&.{inttest_arg});
+    run_inttest.addArgs(&.{ "-outfile", tmpfile_path, inttest_arg });
     const run_inttest_step = b.step("inttest", "Run integration tests");
     run_inttest_step.dependOn(&run_inttest.step); // integration tests
 

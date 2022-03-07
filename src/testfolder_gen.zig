@@ -41,7 +41,7 @@ fn ensureFile(path: []const u8) !void {
         .read = true,
     }) catch |err| switch (err) {
         error.PathAlreadyExists => {
-            return; // TODO open file to ensure things work correctly
+            return;
         },
         else => {
             fatal("unable to create test file '{s}': {s}", .{
@@ -166,9 +166,4 @@ test "use of realpath instead of realpathAlloc" {
     var out_buf: [4096]u8 = undefined;
     const real_path = try os.realpath(path_name, &out_buf); // works
     std.debug.print("real_path: {s}\n", .{real_path});
-}
-
-test "all bad patterns and control sequences are found without duplicates" {
-    // to be called after running `zig test tfgen`
-    // TODO
 }

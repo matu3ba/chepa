@@ -2,3 +2,4 @@ zig-cache
 zig-out
 test_folders
 perf_folders
+perfbench.txt
