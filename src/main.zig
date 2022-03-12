@@ -89,9 +89,48 @@ const Cli = struct {
 
 // returns success or failure of the check
 // assume: correct cwd and args are given
-fn checkOnly() !bool {}
-fn shellOutput() !bool {}
-fn fileOutput() !bool {}
+fn checkOnly(arena: std.mem.Allocator, args: [][:0]u8) !bool {
+    var i: u64 = 1; // skip program name
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "-c")) // skip -c
+            continue;
+        const root_path = args[i];
+        var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
+        const native_os = builtin.target.os.tag;
+        switch (native_os) {
+            .windows => {
+                if (0x61 <= it.buffer[0] and it.buffer[0] <= 0x7A // A-Z
+                and it.buffer[1] == ':') {
+                    it.next();
+                }
+            },
+            else => {},
+        }
+        while (it.next()) |entry| {
+            std.debug.assert(entry.len > 0);
+            if (isFilenamePortAscii(entry) == false)
+                return false;
+        }
+        var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
+        defer root_dir.close();
+        var walker = try root_dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next()) |entry| {
+            const basename = entry.basename;
+            std.debug.assert(basename.len > 0);
+            if (isFilenamePortAscii(basename) == false)
+                return false;
+        }
+    }
+    return true;
+}
+fn shellOutput() !bool {
+    return true;
+}
+fn fileOutput() !bool {
+    // requires check for newline + getting path in case newline exists
+    return true;
+}
 
 const Mode = enum {
     /// only check withs status code
@@ -124,9 +163,6 @@ pub fn main() !void {
 
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
-    const cwd = try process.getCwdAlloc(arena); // windows compatibility
-    defer arena.free(cwd);
-
     var cli = Cli{};
 
     var i: u64 = 1; // skip program name
@@ -153,13 +189,23 @@ pub fn main() !void {
     defer if (cli.write_file != null)
         cli.write_file.?.close();
 
-    //const ret = switch(mode) {
-    //    CheckOnly => checkOnly(),
-    //    ShellOutput => shellOutput(),
-    //    FileOutput => fileOutput,
-    //};
-    //return ret;
+    const ret = switch (mode) {
+        Mode.CheckOnly => try checkOnly(arena, args),
+        Mode.ShellOutput => try shellOutput(),
+        Mode.FileOutput => try fileOutput(),
+    };
+    _ = ret;
+    // TODO Exit Status
+    //if (mode == Mode.CheckOnly) {
+    //    if (ret == true) {
+    //        return 0;
+    //    } else {
+    //        return 1;
+    //    }
+    //}
 
+    const cwd = try process.getCwdAlloc(arena); // windows compatibility
+    defer arena.free(cwd);
     // 2. recursively check children of each given path
     // * output sanitized for ascii escape sequences and control characters on default
     // * output usable in vim and shell
