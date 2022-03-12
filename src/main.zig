@@ -87,9 +87,26 @@ const Cli = struct {
     write_file: ?std.fs.File = null,
 };
 
+// returns success or failure of the check
+// assume: correct cwd and args are given
+fn checkOnly() !bool {}
+fn shellOutput() !bool {}
+fn fileOutput() !bool {}
+
+const Mode = enum {
+    /// only check withs status code
+    CheckOnly,
+    /// heck with limited output
+    ShellOutput,
+    /// check with output to file
+    FileOutput,
+};
+
 // assume: no file `-outfile` exists
 // assume: user specifies non-overlapping input paths
+// assume: user wants 30 lines output space and a summary of total output size
 pub fn main() !void {
+    var mode: Mode = Mode.ShellOutput; // default execution mode
     // 1. read path names from cli args
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_instance.deinit();
@@ -115,16 +132,33 @@ pub fn main() !void {
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
         if (std.mem.eql(u8, args[i], "-outfile")) {
+            try std.testing.expect(mode == Mode.ShellOutput); // TODO fix
             if (i + 1 >= args.len) {
-                //stderr.writeAll("invalid argument for '-outfile'\n");
                 return error.InvalidArgument;
             }
             i += 1;
             cli.write_file = try std.fs.cwd().createFile(args[i], .{});
+            mode = Mode.FileOutput;
+        }
+        if (std.mem.eql(u8, args[i], "-c")) {
+            std.testing.expect(mode == Mode.ShellOutput) catch |err| {
+                if (cli.write_file != null) {
+                    cli.write_file.?.close();
+                    return err;
+                }
+            };
+            mode = Mode.CheckOnly;
         }
     }
     defer if (cli.write_file != null)
         cli.write_file.?.close();
+
+    //const ret = switch(mode) {
+    //    CheckOnly => checkOnly(),
+    //    ShellOutput => shellOutput(),
+    //    FileOutput => fileOutput,
+    //};
+    //return ret;
 
     // 2. recursively check children of each given path
     // * output sanitized for ascii escape sequences and control characters on default
@@ -137,6 +171,8 @@ pub fn main() !void {
             i += 1;
             continue;
         }
+        if (std.mem.eql(u8, args[i], "-c")) // skip -c
+            continue;
         // perf of POSIX/Linux nftw, Rust walkdir and find are comparable.
         // zig libstd offers higher perf for less convenience with optimizations
         // see https://github.com/romkatv/gitstatus/blob/master/docs/listdir.md
@@ -254,9 +290,13 @@ pub fn main() !void {
                     }
                 } else {
                     if (has_ctrlchars) {
+                        // if dir has control characters, then we dont want to print them.
+                        // however, walker would still visit them
+                        // => abort + only print the current one
                         try stdout.writeAll("'");
                         try stdout.writeAll(rl_sup_dir_rel);
                         try stdout.writeAll("' has file with ctrl chars\n");
+                        std.process.exit(1);
                     } else {
                         try stdout.writeAll("'");
                         try stdout.writeAll(entry.path);

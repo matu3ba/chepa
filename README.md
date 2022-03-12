@@ -20,7 +20,7 @@ wip.
    * only necessary allocs
    * sane default with configurability (what fits on screen)
    * developer may use memory intensive processes
-2. only status codes (-c for check, 0 ok, negative ones or positives ones?)
+2. only status codes (-c for check, 0 ok, positives ones generated from zig enum)
    * only necessary allocs
    * immediate exit on error
 3. store messages in memory and flush at end (-s size, -f file)
