@@ -144,7 +144,7 @@ const Mode = enum {
 // assume: no file `-outfile` exists
 // assume: user specifies non-overlapping input paths
 // assume: user wants 30 lines output space and a summary of total output size
-pub fn main() !void {
+pub fn main() !u8 {
     var mode: Mode = Mode.ShellOutput; // default execution mode
     // 1. read path names from cli args
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -211,6 +211,7 @@ pub fn main() !void {
     // * output usable in vim and shell
     var found_ctrlchars = false;
     var found_newline = false;
+    var found_badchars = false;
     i = 1; // skip program name
     while (i < args.len) : (i += 1) {
         if (std.mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
@@ -299,6 +300,7 @@ pub fn main() !void {
             //std.debug.print("basename[2]: {d}\n", .{basename[2]});
 
             if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
+                found_badchars = true;
                 var has_ctrlchars = false;
                 var has_newline = false;
                 for (basename) |char| {
@@ -342,7 +344,8 @@ pub fn main() !void {
                         try stdout.writeAll("'");
                         try stdout.writeAll(rl_sup_dir_rel);
                         try stdout.writeAll("' has file with ctrl chars\n");
-                        std.process.exit(1);
+                        return 2;
+                        //std.process.exit(1);
                     } else {
                         try stdout.writeAll("'");
                         try stdout.writeAll(entry.path);
@@ -355,45 +358,7 @@ pub fn main() !void {
             try stdout.writeAll("found newlines, please manually resolve in output file\n");
         }
     }
-}
-
-test "resolvePosix" {
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x01/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x02/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x03/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x04/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x05/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x06/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x07/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x08/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x09/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0a/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0b/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0c/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0d/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0e/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x0f/", ".." }, "/test_folders/control_sequences"); // 15
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x10/", ".." }, "/test_folders/control_sequences"); // 16
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x11/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x12/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x13/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x14/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x15/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x16/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x17/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x18/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x19/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1a/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1b/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1c/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1d/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1e/", ".." }, "/test_folders/control_sequences");
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x1f/", ".." }, "/test_folders/control_sequences"); // 31
-    try testResolvePosix(&[_][]const u8{ "/test_folders/control_sequences/\x7f/", ".." }, "/test_folders/control_sequences");
-}
-
-fn testResolvePosix(paths: []const []const u8, expected: []const u8) !void {
-    const actual = try fs.path.resolvePosix(testing.allocator, paths);
-    defer testing.allocator.free(actual);
-    try testing.expect(mem.eql(u8, actual, expected));
+    if (found_badchars)
+        return 1;
+    return 0;
 }
