@@ -41,10 +41,12 @@ opportunity for bad practice filenames.
 - [x] test control sequences: add such folders (fix #10920 to have nicer solution)
 - [x] test bad patterns: add such folders
 - [x] cli `-outfile`
-- [ ] integration tests with generated file
+- [x] use case 2
+- [x] use case 3
+- [ ] refactor -c and -outfile to separate functions
+- [ ] finish integration tests with generated file (zig build inttest)
+- [ ] replace hacky buildTest.sh with proper status code tests
 - [ ] perf bench: cmds to invoke hyperfine with other contestors
-- [ ] use case 2
-- [ ] use case 3
 - [ ] test data
 - [ ] utf8
 - [ ] simd?
