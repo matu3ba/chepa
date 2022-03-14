@@ -43,7 +43,7 @@ opportunity for bad practice filenames.
 - [x] cli `-outfile`
 - [x] use case 2
 - [x] use case 3
-- [ ] refactor -c and -outfile to separate functions
+- [x] refactor -c and -outfile to separate functions
 - [ ] finish integration tests with generated file (zig build inttest)
 - [ ] replace hacky buildTest.sh with proper status code tests
 - [ ] perf bench: cmds to invoke hyperfine with other contestors

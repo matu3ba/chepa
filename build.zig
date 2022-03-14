@@ -45,6 +45,8 @@ pub fn build(b: *std.build.Builder) void {
     run_inttest.addArgs(&.{ "-outfile", tmpfile_path, inttest_arg });
     const run_inttest_step = b.step("inttest", "Run integration tests");
     run_inttest_step.dependOn(&run_inttest.step); // integration tests
+    //std.debug.print("tmpfile_path: {s}, inttest_arg: {s}\n", .{ tmpfile_path, inttest_arg });
+    // TODO fix this
 
     const perfgen = b.addExecutable("perfgen", "src/perffolder_gen.zig");
     perfgen.setTarget(target);

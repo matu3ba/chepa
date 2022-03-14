@@ -172,21 +172,19 @@ fn shellOutput(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
             }
         }
 
-        log.debug("reading (recursively) file '{s}'", .{root_path});
+        //log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),
             });
         };
         defer root_dir.close();
-
         var walker = try root_dir.walk(arena);
         defer walker.deinit();
         while (try walker.next()) |entry| {
             const basename = entry.basename;
             //log.debug("file '{s}'", .{basename}); // fails at either d_\t/\n\r\v\f
             //std.debug.print("basename[2]: {d}\n", .{basename[2]});
-
             if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
                 found_badchars = true;
                 var has_ctrlchars = false;
@@ -287,7 +285,7 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
             }
         }
 
-        log.debug("reading (recursively) file '{s}'", .{root_path});
+        //log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
             write_file.?.close();
             fatal("unable to open root directory '{s}': {s}", .{
@@ -295,7 +293,6 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
             });
         };
         defer root_dir.close();
-
         var walker = try root_dir.walk(arena);
         defer walker.deinit();
         while (try walker.next()) |entry| {
