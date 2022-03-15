@@ -341,10 +341,12 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
                 }
             }
         }
-        if (found_newline) {
-            try stdout.writeAll("found newlines, please manually resolve in output file\n");
-        }
     }
+    if (found_newline) {
+        try stdout.writeAll("found newlines, please manually resolve in output file\n");
+    }
+    if (found_ctrlchars)
+        return 2;
     if (found_badchars)
         return 1;
     return 0;
