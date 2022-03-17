@@ -126,7 +126,60 @@ pub fn main() !void {
             n_pbuf -= tmpbuf.len;
         }
     }
-    // 3. bad_patterns like ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
+
+    // 3. control_sequences (0x00..0x31 and 0x7F without newline \n 0x0a)
+    // to keep things simple, we create direcories with d_controlsequence
+    // and files with f_controlsequences inside folder control_sequences
+    {
+        const path3: []const u8 = "/ctrl_seq_nonewline";
+        mem.copy(u8, path_buffer[n_pbuf..], path3);
+        n_pbuf += path3.len;
+        try ensureDir(path_buffer[0..n_pbuf]);
+        defer n_pbuf -= path3.len;
+        {
+            // 1. directories
+            var tmpbuf = "/d_3".*;
+            //tmpbuf[2] = 0x00; // cannot access memory at addres 0x0/null
+            tmpbuf[3] = 0x01;
+            var i: u8 = 1;
+            while (i < 32) : (i += 1) {
+                if (tmpbuf[3] != 10) { // if nr not '\n'
+                    mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                    n_pbuf += tmpbuf.len;
+                    try ensureDir(path_buffer[0..n_pbuf]);
+                    n_pbuf -= tmpbuf.len;
+                }
+                tmpbuf[3] = i; // deferred update to exclude 32
+            }
+            tmpbuf[3] = 0x7F;
+            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            n_pbuf += tmpbuf.len;
+            try ensureDir(path_buffer[0..n_pbuf]);
+            n_pbuf -= tmpbuf.len;
+
+            // 2. files
+            tmpbuf[1] = 'f'; // f_symbol
+            //tmpbuf[2] = 0x00; // cannot access memory at addres 0x0/null
+            tmpbuf[3] = 0x01;
+            i = 1;
+            while (i < 32) : (i += 1) {
+                if (tmpbuf[3] != 10) { // if nr not '\n'
+                    mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                    n_pbuf += tmpbuf.len;
+                    try ensureFile(path_buffer[0..n_pbuf]);
+                    n_pbuf -= tmpbuf.len;
+                }
+                tmpbuf[3] = i; // deferred update to exclude 32
+            }
+            tmpbuf[3] = 0x7F;
+            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            n_pbuf += tmpbuf.len;
+            try ensureFile(path_buffer[0..n_pbuf]);
+            n_pbuf -= tmpbuf.len;
+        }
+    }
+
+    // 4. bad_patterns like ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
     const bad_patterns = [_][]const u8{
         "/ fname",
         "/fname ",

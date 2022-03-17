@@ -10,9 +10,16 @@ const Testdata = struct {
 };
 // 0123, 3 only with file output, 01 only with check
 const Testcases = [_]Testdata{
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
 };
 
 fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [Testcases.len]*bld.RunStep {
@@ -23,14 +30,19 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
         test_cases[i] = exe.run(); // *RunStep
         test_cases[i].expected_exit_code = tcases[i].exp_exit_code;
         test_cases[i].step.dependOn(dep_step);
-        // TODO different build command per mode
         const inttest_arg = b.pathJoin(&.{ b.build_root, tcases[i].foldername });
         test_cases[i].addArgs(&.{inttest_arg});
+        switch (tcases[i].mode) {
+            Mode.CheckOnly => test_cases[i].addArgs(&.{"-c"}),
+            Mode.FileOutput => {
+                // multiple executables write same file
+                const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
+                test_cases[i].addArgs(&.{ "-outfile", tmpfile_path });
+            },
+            Mode.ShellOutput => {},
+        }
     }
     return test_cases;
-    // TODO special case addArgs with
-    //run_inttest.addArgs(&.{ "-outfile", tmpfile_path, inttest_arg });
-    //const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
 }
 
 pub fn build(b: *bld.Builder) void {

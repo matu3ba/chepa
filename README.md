@@ -44,10 +44,10 @@ opportunity for bad practice filenames.
 - [x] use case 2
 - [x] use case 3
 - [x] refactor -c and -outfile to separate functions
-- [ ] finish integration tests with generated file (zig build inttest)
-- [ ] replace hacky buildTest.sh with proper status code tests
-- [ ] perf bench: cmds to invoke hyperfine with other contestors
+- [x] replace hacky buildTest.sh with proper status code tests
+- [x] finish integration tests with generated file (zig build inttest)
 - [ ] test data
+- [ ] perf bench: cmds to invoke hyperfine with other contestors
 - [ ] utf8
 - [ ] simd?
 - [ ] utf16
