@@ -33,5 +33,7 @@ test $? -eq 2 || (echo "control_sequences, found error"; exit 0);
 ./zig-out/bin/chepa ./test_folders/bad_patterns/ ./zig-out/ ./test_folders/control_sequences/
 test $? -eq 2 || (echo "control_sequences, found error"; exit 0);
 
+#TODO capture output
+
 # file output
 #TODO

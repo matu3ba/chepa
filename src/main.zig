@@ -363,9 +363,9 @@ const Mode = enum {
 
 // return codes
 // 0 success
-// 1 bad pattern
+// 1 bad pattern, in case of -c option: found something bad
 // 2 control character
-// 3 newline occured
+// 3 newline occured (only in case of -outfile)
 // + other error codes generated from zig
 
 // assume: no file `-outfile` exists
