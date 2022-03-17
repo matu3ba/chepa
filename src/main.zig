@@ -352,7 +352,7 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
     return 0;
 }
 
-const Mode = enum {
+pub const Mode = enum {
     /// only check withs status code
     CheckOnly,
     /// heck with limited output
