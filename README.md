@@ -100,3 +100,38 @@ Problems for storing problems for user-inspection and usage in tools
 * special case of `\n`
   - return in status code or user message
   - cli text in offending line + `HERE` for easy search
+
+#### utf8 whitespace characters
+```txt
+0x9     U+0009  character tabulation          b'\t'
+0xa     U+000A  line feed                     b'\n'
+0xb     U+000B  line tabulation               b'\x0b'
+0xc     U+000C  form feed                     b'\x0c'
+0xd     U+000D  carriage return               b'\r'
+0x20    U+0020  space                         b' '
+0x85    U+0085  next line                     b'\xc2\x85'
+0xa0    U+00A0  no-break space                b'\xc2\xa0'
+0x1680  U+1680  ogham space mark              b'\xe1\x9a\x80'
+0x180e  U+180E  mongolian vowel separator     b'\xe1\xa0\x8e'
+0x2000  U+2000  en quad                       b'\xe2\x80\x80'
+0x2001  U+2001  em quad                       b'\xe2\x80\x81'
+0x2002  U+2002  en space                      b'\xe2\x80\x82'
+0x2003  U+2003  em space                      b'\xe2\x80\x83'
+0x2004  U+2004  three-per-em space            b'\xe2\x80\x84'
+0x2005  U+2005  four-per-em space             b'\xe2\x80\x85'
+0x2006  U+2006  six-per-em space              b'\xe2\x80\x86'
+0x2007  U+2007  figure space                  b'\xe2\x80\x87'
+0x2008  U+2008  punctuation space             b'\xe2\x80\x88'
+0x2009  U+2009  thin space                    b'\xe2\x80\x89'
+0x200a  U+200A  hair space                    b'\xe2\x80\x8a'
+0x200b  U+200B  zero width space              b'\xe2\x80\x8b'
+0x200c  U+200C  zero width non-joiner         b'\xe2\x80\x8c'
+0x200d  U+200D  zero width joiner             b'\xe2\x80\x8d'
+0x2028  U+2028  line separator                b'\xe2\x80\xa8'
+0x2029  U+2029  paragraph separator           b'\xe2\x80\xa9'
+0x202f  U+202F  narrow no-break space         b'\xe2\x80\xaf'
+0x205f  U+205F  medium mathematical space     b'\xe2\x81\x9f'
+0x2060  U+2060  word joiner                   b'\xe2\x81\xa0'
+0x3000  U+3000  ideographic space             b'\xe3\x80\x80'
+0xfeff  U+FEFF  zero width non-breaking space b'\xef\xbb\xbf'
+```
