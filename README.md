@@ -31,6 +31,7 @@ wip.
 ## status
 For now, `POSIX portable file name character set` is used to keep things simple
 and will remain as another code path behind an additional cli flag.
+Checking ASCII character works.
 Eventually this work will be extended to utf8 and utf16 strings, which offer more
 opportunity for bad practice filenames.
 
@@ -46,9 +47,10 @@ opportunity for bad practice filenames.
 - [x] refactor -c and -outfile to separate functions
 - [x] replace hacky buildTest.sh with proper status code tests
 - [x] finish integration tests with generated file (zig build inttest)
-- [ ] test data
 - [ ] perf bench: cmds to invoke hyperfine with other contestors
 - [ ] utf8
+- [ ] test data
+- [ ] capture output of stdout
 - [ ] simd?
 - [ ] utf16
 - [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented
@@ -100,6 +102,7 @@ Problems for storing problems for user-inspection and usage in tools
 * special case of `\n`
   - return in status code or user message
   - cli text in offending line + `HERE` for easy search
+* process spawning with cli input and paths with control characters likely breaks
 
 #### utf8 whitespace characters
 ```txt
