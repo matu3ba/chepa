@@ -47,10 +47,11 @@ opportunity for bad practice filenames.
 - [x] refactor -c and -outfile to separate functions
 - [x] replace hacky buildTest.sh with proper status code tests
 - [x] finish integration tests with generated file (zig build inttest)
-- [ ] perf bench: cmds to invoke hyperfine with other contestors
-- [ ] utf8
+- [x] perf bench: cmds to invoke hyperfine with other contestors
+- [ ] utf8: std.unicode interpret as unicode literals
 - [ ] test data
 - [ ] capture output of stdout
+- [ ] other cli option to validate paths as utf8 with zigstr
 - [ ] simd?
 - [ ] utf16
 - [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented

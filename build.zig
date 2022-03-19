@@ -100,9 +100,18 @@ pub fn build(b: *bld.Builder) void {
     run_perfgen.addArgs(&.{perfgen_arg});
     const run_perfgen_step = b.step("perfgen", "Perf benchmark folders generation (requires ~440MB memory)");
     run_perfgen_step.dependOn(&run_perfgen.step); // perf bench data generation
+
+    //TODO check, if hyperfine is installed or build+use a proper c/c++ equivalent
+    //hyperfine './zig-out/bin/chepa perf_folders/ -c' 'fd -j1 "blabla" perf_folders/'
+    //hyperfine './zig-out/bin/chepa perf_folders/' 'fd -j1 "blabla" perf_folders/'
+    //'./zig-out/bin/chepa perf_folders/ -c' ran
+    //  2.23 ± 0.07 times faster than 'fd -j1 "blabla" perf_folders/'
+    //'./zig-out/bin/chepa perf_folders/' ran
+    //  2.30 ± 0.04 times faster than 'fd -j1 "blabla" perf_folders/'
+
     //const run_perfbench = exe.run(); // run perf benchmarks
     //run_perfbench.step.dependOn(run_perfgen_step);
-    //const perfbench_arg = b.pathJoin(&.{ b.build_root, "test_folders" });
+    //const perfbench_arg = b.pathJoin(&.{ b.build_root, "perf_folders" });
     //run_perfbench.addArgs(&.{perfbench_arg});
     //const run_perfbench_step = b.step("inttest", "Run integration tests");
     //run_perfbench_step.dependOn(&run_perfbench.step); // run perf benchmarks
