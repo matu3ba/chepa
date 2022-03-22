@@ -50,7 +50,8 @@ opportunity for bad practice filenames.
 - [x] perf bench: cmds to invoke hyperfine with other contestors
 - [ ] utf8: std.unicode interpret as unicode literals
 - [ ] test data
-- [ ] capture output of stdout
+- [ ] capture output of stdout: wait for testing IPC+output capture to be less annoying
+      (https://github.com/ziglang/zig/pull/11138 and follow-up PRs)
 - [ ] other cli option to validate paths as utf8 with zigstr
 - [ ] simd?
 - [ ] utf16
@@ -139,3 +140,16 @@ Problems for storing problems for user-inspection and usage in tools
 0x3000  U+3000  ideographic space             b'\xe3\x80\x80'
 0xfeff  U+FEFF  zero width non-breaking space b'\xef\xbb\xbf'
 ```
+
+#### comparison of (non-fully optimized) unicode decoding
+created via lib/std/unicode/throughput_test.zig:
+short ASCII strings
+  count:    84 MiB/s [3]
+short Unicode strings
+  count:   126 MiB/s [3]
+pure ASCII strings
+  count:  1770 MiB/s [80]
+pure Unicode strings
+  count:   370 MiB/s [80]
+mixed ASCII/Unicode strings
+  count:   522 MiB/s [224]

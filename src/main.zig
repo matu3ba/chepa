@@ -12,10 +12,16 @@ const stderr = std.io.getStdErr();
 const testing = std.testing;
 
 const usage: []const u8 =
-    \\ [options] path1 [path2 ..]
+    \\ [mode] [options] path1 [path2 ..]
+    \\ mode:
+    \\ 1.                 cli mode for visual inspection (default cap to 30 lines)
+    \\ 2. -c              check if good (return status 0 or bad with status 1)
+    \\ 3. -outfile file   write output to file instead to stdout
     \\ options:
-    \\ -outfile file    write output to file instead to stdout
-    \\ Shells may not show control characters correctly or misbehave.
+    \\ TODO
+    \\
+    \\ Shells may not show control characters correctly or misbehave,
+    \\ so they are only written (with exception of \n occurence) to files.
     \\ '0x00' (0) is not representable.
 ;
 
@@ -126,6 +132,8 @@ fn checkOnly(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
 }
 
 fn shellOutput(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
+    const max_msg: u32 = 30; // TODO option to set max_msg as cli flag
+    var cnt_msg: u32 = 0;
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
     const cwd = try process.getCwdAlloc(arena); // windows compatibility
@@ -219,11 +227,15 @@ fn shellOutput(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
                     try stdout.writeAll(rl_sup_dir_rel);
                     try stdout.writeAll("' has file with ctrl chars\n");
                     return 2;
-                    //std.process.exit(1);
                 } else {
                     try stdout.writeAll("'");
                     try stdout.writeAll(entry.path);
                     try stdout.writeAll("' has non-portable ascii chars\n");
+                    cnt_msg += 1;
+                    if (cnt_msg == max_msg) {
+                        try stdout.writeAll("' has non-portable ascii chars\n");
+                        return 1;
+                    }
                 }
             }
         }
