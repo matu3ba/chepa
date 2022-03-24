@@ -33,13 +33,21 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
         const inttest_arg = b.pathJoin(&.{ b.build_root, tcases[i].foldername });
         test_cases[i].addArgs(&.{inttest_arg});
         switch (tcases[i].mode) {
-            Mode.CheckOnly => test_cases[i].addArgs(&.{"-c"}),
-            Mode.FileOutput => {
+            Mode.CheckOnly => test_cases[i].addArgs(&.{"-c"}), // TODO more test cases for utf8
+            //Mode.CheckOnlyAscii => test_cases[i].addArgs(&.{"-c"}),
+            Mode.FileOutput => { // TODO more test cases for utf8
                 // multiple executables write same file
                 const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
                 test_cases[i].addArgs(&.{ "-outfile", tmpfile_path });
             },
-            Mode.ShellOutput => {},
+            //Mode.FileOutputAscii => {
+            //    // multiple executables write same file
+            //    const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
+            //    test_cases[i].addArgs(&.{ "-outfile", tmpfile_path });
+            //},
+            Mode.ShellOutput => {}, // TODO more test cases for utf8
+            //Mode.ShellOutputAscii => {},
+            else => {},
         }
     }
     return test_cases;
@@ -86,6 +94,7 @@ pub fn build(b: *bld.Builder) void {
 
     const run_inttest_step = b.step("inttest", "Run integration tests");
     const testdata = createTests(b, exe, run_tfgen_step);
+    // TODO how to enumerate test sequences?
     for (testdata) |single_test| {
         run_inttest_step.dependOn(&single_test.step);
     }

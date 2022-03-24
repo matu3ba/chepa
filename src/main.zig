@@ -367,11 +367,25 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
 pub const Mode = enum {
     /// only check withs status code
     CheckOnly,
+    /// ascii only check withs status code
+    CheckOnlyAscii,
     /// heck with limited output
     ShellOutput,
+    /// ascii heck with limited output
+    ShellOutputAscii,
     /// check with output to file
     FileOutput,
+    /// ascii check with output to file
+    FileOutputAscii,
 };
+
+// never returns Mode, but an error to bubble up to main
+fn cleanup(write_file: *?std.fs.File) !Mode {
+    if (write_file.* != null) {
+        write_file.*.?.close();
+    }
+    return error.TestUnexpectedResult;
+}
 
 // return codes
 // 0 success
@@ -411,22 +425,31 @@ pub fn main() !u8 {
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
         if (std.mem.eql(u8, args[i], "-outfile")) {
-            try std.testing.expect(mode == Mode.ShellOutput); // TODO fix
+            mode = switch (mode) {
+                Mode.ShellOutput => Mode.FileOutput,
+                Mode.ShellOutputAscii => Mode.FileOutputAscii,
+                else => try cleanup(&write_file), // hack around stage1
+            };
             if (i + 1 >= args.len) {
                 return error.InvalidArgument;
             }
             i += 1;
             write_file = try std.fs.cwd().createFile(args[i], .{});
-            mode = Mode.FileOutput;
         }
         if (std.mem.eql(u8, args[i], "-c")) {
-            std.testing.expect(mode == Mode.ShellOutput) catch |err| {
-                if (write_file != null) {
-                    write_file.?.close();
-                    return err;
-                }
+            mode = switch (mode) {
+                Mode.ShellOutput => Mode.CheckOnly,
+                Mode.ShellOutputAscii => Mode.CheckOnlyAscii,
+                else => try cleanup(&write_file), // hack around stage1
             };
-            mode = Mode.CheckOnly;
+        }
+        if (std.mem.eql(u8, args[i], "-a")) {
+            mode = switch (mode) {
+                Mode.ShellOutput => Mode.ShellOutputAscii,
+                Mode.CheckOnly => Mode.CheckOnlyAscii,
+                Mode.FileOutput => Mode.FileOutputAscii,
+                else => try cleanup(&write_file), // hack around stage1
+            };
         }
     }
     defer if (write_file != null)
@@ -435,10 +458,13 @@ pub fn main() !u8 {
     const ret = switch (mode) {
         // only check status
         Mode.CheckOnly => try checkOnly(arena, args),
+        Mode.CheckOnlyAscii => try checkOnly(arena, args), // TODO
         // shell output => capped at 30 lines
         Mode.ShellOutput => try shellOutput(arena, args),
+        Mode.ShellOutputAscii => try shellOutput(arena, args), // TODO
         // file output => files with '\n' marked
         Mode.FileOutput => try fileOutput(arena, args, write_file),
+        Mode.FileOutputAscii => try fileOutput(arena, args, write_file), // TODO
     };
     // TODO close file on error
     return ret;
