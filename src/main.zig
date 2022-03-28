@@ -103,9 +103,14 @@ inline fn skipItIfWindows(it: *mem.TokenIterator(u8)) void {
     }
 }
 
+const Encoding = enum {
+    Ascii,
+    Utf8,
+};
+
 // returns success or failure of the check
 // assume: correct cwd and args are given
-fn checkOnly(arena: mem.Allocator, args: [][:0]u8) !u8 {
+fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
         if (mem.eql(u8, args[i], "-c")) // skip -c
@@ -115,8 +120,14 @@ fn checkOnly(arena: mem.Allocator, args: [][:0]u8) !u8 {
         skipItIfWindows(&it);
         while (it.next()) |entry| {
             std.debug.assert(entry.len > 0);
-            if (isFilenamePortAscii(entry) == false)
-                return 1;
+            switch (enc) {
+                Encoding.Ascii => {
+                    if (!isFilenamePortAscii(entry)) return 1;
+                },
+                Encoding.Utf8 => {
+                    if (!isWordOk(entry)) return 1;
+                },
+            }
         }
         var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
         defer root_dir.close();
@@ -201,35 +212,6 @@ fn isWordOk(word: []const u8) bool {
     }
     if (visited_space) return false; // ending empty space
     return true;
-}
-
-fn checkOnlyUtf8(arena: mem.Allocator, args: [][:0]u8) !u8 {
-    var i: u64 = 1; // skip program name
-    while (i < args.len) : (i += 1) {
-        if (mem.eql(u8, args[i], "-c")) // skip -c
-            continue;
-        const root_path = args[i];
-        var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
-        skipItIfWindows(&it);
-        while (it.next()) |entry| {
-            std.debug.assert(entry.len > 0);
-            if (!isWordOk(entry))
-                return 1;
-            //if (isFilenamePortAscii(entry) == false)
-            //    return 1;
-        }
-        var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
-        defer root_dir.close();
-        var walker = try root_dir.walk(arena);
-        defer walker.deinit();
-        while (try walker.next()) |entry| {
-            const basename = entry.basename;
-            std.debug.assert(basename.len > 0);
-            if (!isWordOk(basename))
-                return 1;
-        }
-    }
-    return 0;
 }
 
 fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
@@ -558,8 +540,8 @@ pub fn main() !u8 {
 
     const ret = switch (mode) {
         // only check status
-        Mode.CheckOnly => try checkOnlyUtf8(arena, args),
-        Mode.CheckOnlyAscii => try checkOnly(arena, args),
+        Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
+        Mode.CheckOnlyAscii => try checkOnly(Encoding.Ascii, arena, args),
         // shell output => capped at 30 lines
         Mode.ShellOutput => try shellOutput(arena, args),
         Mode.ShellOutputAscii => try shellOutput(arena, args), // TODO
