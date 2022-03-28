@@ -106,6 +106,9 @@ const Encoding = enum {
 fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
+        if (enc == Encoding.Ascii) {
+            if (mem.eql(u8, args[i], "-a")) continue; // skip -a
+        }
         if (mem.eql(u8, args[i], "-c")) // skip -c
             continue;
         const root_path = args[i];
@@ -129,8 +132,14 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
         while (try walker.next()) |entry| {
             const basename = entry.basename;
             std.debug.assert(basename.len > 0);
-            if (isWordOkAscii(basename) == false)
-                return 1;
+            switch (enc) {
+                Encoding.Ascii => {
+                    if (!isWordOkAscii(basename)) return 1;
+                },
+                Encoding.Utf8 => {
+                    if (!isWordOk(basename)) return 1;
+                },
+            }
         }
     }
     return 0;
@@ -207,7 +216,7 @@ fn isWordOk(word: []const u8) bool {
     return true;
 }
 
-fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
+fn shellOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
     const max_msg: u32 = 30; // TODO option to set max_msg as cli flag
     var cnt_msg: u32 = 0;
     // tmp data for realpath(), never to be references otherwise
@@ -220,6 +229,9 @@ fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
     var found_badchars = false;
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
+        if (enc == Encoding.Ascii) {
+            if (mem.eql(u8, args[i], "-a")) continue; // skip -a
+        }
         const root_path = args[i];
         {
             // ensure that super path does not contain any
@@ -320,7 +332,7 @@ fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
     return 0;
 }
 
-fn fileOutput(arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
+fn fileOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
     std.debug.assert(write_file != null);
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
@@ -332,6 +344,9 @@ fn fileOutput(arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
     var found_newline = false;
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
+        if (enc == Encoding.Ascii) {
+            if (mem.eql(u8, args[i], "-a")) continue; // skip -a
+        }
         if (mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
             i += 1;
             continue;
@@ -535,11 +550,11 @@ pub fn main() !u8 {
         Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
         Mode.CheckOnlyAscii => try checkOnly(Encoding.Ascii, arena, args),
         // shell output => capped at 30 lines
-        Mode.ShellOutput => try shellOutput(arena, args),
-        Mode.ShellOutputAscii => try shellOutput(arena, args), // TODO
+        Mode.ShellOutput => try shellOutput(Encoding.Utf8, arena, args),
+        Mode.ShellOutputAscii => try shellOutput(Encoding.Ascii, arena, args), // TODO finish
         // file output => files with '\n' marked
-        Mode.FileOutput => try fileOutput(arena, args, write_file),
-        Mode.FileOutputAscii => try fileOutput(arena, args, write_file), // TODO
+        Mode.FileOutput => try fileOutput(Encoding.Utf8, arena, args, write_file),
+        Mode.FileOutputAscii => try fileOutput(Encoding.Ascii, arena, args, write_file), // TODO finish
     };
     // TODO close file on error
     return ret;

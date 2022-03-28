@@ -105,7 +105,7 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
                 test_cases[i].addArgs(&.{ "-a", "-outfile", tmpfile_path });
             },
             Mode.ShellOutput => {},
-            Mode.ShellOutputAscii => test_cases[i].addArgs(&.{"-c"}),
+            Mode.ShellOutputAscii => test_cases[i].addArgs(&.{"-a"}),
         }
     }
     return test_cases;
