@@ -150,9 +150,7 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
 fn isWordOk(word: []const u8) bool {
     var visited_space: bool = false;
     switch (word[0]) {
-        '~' => return false, // leading tilde
-        '-' => return false, // leading dash
-        ' ' => return false, // leading empty space
+        '~', '-', ' ' => return false, // leading tilde,dash,empty space
         else => {},
     }
 
@@ -216,6 +214,101 @@ fn isWordOk(word: []const u8) bool {
     return true;
 }
 
+// return codes: 0 ok, 1 antipattern, 2 cntrl, 3 newline, 4 invalid unicode
+// assume: len(word) > 0
+// assume: path described by /word/word/ and / not part of word
+fn isWordOkExtended(word: []const u8) u3 {
+    var status = 0;
+    var visited_space: bool = false;
+    switch (word[0]) {
+        '~', '-', ' ' => {
+            status = 1;
+        }, // leading tilde,dash,empty space
+        else => {},
+    }
+
+    var utf8 = (unicode.Utf8View.init(word) catch {
+        return 4;
+    }).iterator();
+    // TODO do \ escaped characters (some OSes disallow them)
+    // TODO Is 1 switch prong in a padded variable faster?
+    while (utf8.nextCodepointSlice()) |codepoint| {
+        switch (codepoint.len) {
+            0 => unreachable,
+            1 => {
+                const char = codepoint[0]; // U+0000...U+007F
+                switch (char) {
+                    0...9 => {
+                        status = 2;
+                    }, // Cntrl (includes '\n', '\r', '\t')
+                    10 => {
+                        return 3;
+                    }, // Line Feed '\n'
+                    11...31 => {
+                        status = 2;
+                    }, // Cntrl (includes '\n', '\r', '\t')
+                    ',', '`' => {
+                        if (status != 2)
+                            status = 1;
+                    }, // antipattern
+                    '-', '~' => {
+                        if (visited_space and status != 2)
+                            status = 1;
+                    }, // antipattern
+                    ' ' => {
+                        visited_space = true;
+                    },
+                    127 => {
+                        status = 2;
+                    }, // Cntrl
+                    else => {
+                        visited_space = false;
+                    },
+                }
+            },
+            2 => {
+                const char = mem.bytesAsValue(u16, codepoint[0..2]); // U+0080...U+07FF
+                switch (char.*) {
+                    128...159 => {
+                        status = 2;
+                    }, // Cntrl (includes next line 0x85)
+                    160 => {
+                        if (status != 2)
+                            status = 1;
+                    }, // disallowed space: no-break space
+                    else => {
+                        visited_space = false;
+                    },
+                }
+            },
+            3 => {
+                const char = mem.bytesAsValue(u24, codepoint[0..4]); // U+0800...U+FFFF
+                switch (char.*) {
+                    // disallowed spaces, see README.md
+                    0x1680, 0x180e, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x200b => {
+                        if (status != 2)
+                            status = 1;
+                    },
+                    0x200c, 0x200d, 0x2028, 0x2029, 0x202f, 0x205f, 0x2060, 0x3000, 0xfeff => {
+                        if (status != 2)
+                            status = 1;
+                    },
+                    else => {
+                        visited_space = false;
+                    },
+                }
+            },
+            4 => {
+                visited_space = false; // U+10000...U+10FFFF
+            },
+            else => unreachable,
+        }
+        //std.debug.print("got codepoint {s}\n", .{codepoint});
+    }
+    if (visited_space) return false; // ending empty space
+    return true;
+}
+
 // assume: mode != Mode.ShellOutput, mode != Mode.ShellOutputAscii
 fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, args: [][:0]u8) !u8 {
     const max_msg: u32 = 30; // unused for FileOutputAscii, FileOutput
@@ -248,6 +341,8 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
             skipItIfWindows(&it);
             while (it.next()) |entry| {
                 std.debug.assert(entry.len > 0);
+                // TODO ascii vs unicode
+                //switch(mode) {
                 if (!isWordOkAscii(entry)) {
                     var has_ctrlchars = false;
                     var has_newline = false;

@@ -48,10 +48,11 @@ opportunity for bad practice filenames.
 - [x] replace hacky buildTest.sh with proper status code tests
 - [x] finish integration tests with generated file (zig build inttest)
 - [x] perf bench: cmds to invoke hyperfine with other contestors
-- [ ] utf8: std.unicode interpret as unicode literals
-- [ ] test data
+- [x] utf8: std.unicode interpret as unicode literals
+- [x] test data
 - [ ] capture output of stdout: wait for testing IPC+output capture to be less annoying
       (https://github.com/ziglang/zig/pull/11138 and follow-up PRs)
+- [ ] unicode test data
 - [ ] other cli option to validate paths as utf8 with zigstr
 - [ ] simd?
 - [ ] utf16
