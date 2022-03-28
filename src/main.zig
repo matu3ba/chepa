@@ -6,10 +6,11 @@ const log = std.log;
 const mem = std.mem;
 const os = std.os;
 const process = std.process;
+const unicode = std.unicode;
+const testing = std.testing;
+
 const stdout = std.io.getStdOut();
 const stderr = std.io.getStdErr();
-
-const testing = std.testing;
 
 const usage: []const u8 =
     \\ [mode] [options] path1 [path2 ..]
@@ -116,6 +117,112 @@ fn checkOnly(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
             std.debug.assert(entry.len > 0);
             if (isFilenamePortAscii(entry) == false)
                 return 1;
+        }
+        var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
+        defer root_dir.close();
+        var walker = try root_dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next()) |entry| {
+            const basename = entry.basename;
+            std.debug.assert(basename.len > 0);
+            if (isFilenamePortAscii(basename) == false)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+// assume: len(word) > 0
+// assume: path described by /word/word/ and / not part of word
+fn isWordOk(word: []const u8) bool {
+    // TODO catch error.InvalidUtf8 from init
+    var visited_space: bool = false;
+    switch (word[0]) {
+        '~' => return false, // leading tilde
+        '-' => return false, // leading dash
+        ' ' => return false, // leading empty space
+        else => {},
+    }
+
+    var utf8 = (unicode.Utf8View.init(word) catch unreachable).iterator();
+    // visited_space - => error
+    // visited_space a => no error
+    // ==> switch case all cases
+    // TODO testing if . is often used
+    // TODO do \ escaped characters (some OSes disallow them)
+    while (utf8.nextCodepointSlice()) |codepoint| {
+        switch (codepoint.len) {
+            0 => unreachable,
+            1 => {
+                const char = codepoint[0];
+                switch (char) {
+                    0...31, 127 => return false, // Cntrl (includes '\n', '\r', '\t')
+                    ',', '`', '.' => return false,
+                    '-', '~' => {
+                        if (visited_space) return false;
+                        visited_space = false;
+                    }, // antipattern
+                    ' ' => {
+                        visited_space = true;
+                    },
+                    else => {
+                        visited_space = false;
+                    },
+                    // TODO utf8 127...255 ?
+                }
+            },
+            2 => {
+                const char = codepoint[0..2];
+                comptime std.debug.assert(char.len == 2);
+                switch (char) {
+                    // TODO cases
+                    else => {
+                        visited_space = false;
+                    },
+                }
+            },
+            3 => {
+                const char = codepoint[0..3];
+                comptime std.debug.assert(char.len == 3);
+                switch (char) {
+                    // TODO cases
+                    else => {
+                        visited_space = false;
+                    },
+                }
+            },
+            4 => {
+                const char = codepoint[0..4];
+                comptime std.debug.assert(char.len == 4);
+                switch (char) {
+                    // TODO cases
+                    else => {
+                        visited_space = false;
+                    },
+                }
+            },
+            else => unreachable,
+        }
+        std.debug.print("got codepoint {s}\n", .{codepoint});
+    }
+    if (visited_space) return false; // ending empty space
+    return true;
+}
+
+fn checkOnlyUtf8(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
+    var i: u64 = 1; // skip program name
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "-c")) // skip -c
+            continue;
+        const root_path = args[i];
+        var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
+        skipItIfWindows(&it);
+        while (it.next()) |entry| {
+            std.debug.assert(entry.len > 0);
+            if (!isWordOk(entry))
+                return 1;
+            //if (isFilenamePortAscii(entry) == false)
+            //    return 1;
         }
         var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
         defer root_dir.close();
@@ -457,8 +564,8 @@ pub fn main() !u8 {
 
     const ret = switch (mode) {
         // only check status
-        Mode.CheckOnly => try checkOnly(arena, args),
-        Mode.CheckOnlyAscii => try checkOnly(arena, args), // TODO
+        Mode.CheckOnly => try checkOnlyUtf8(arena, args),
+        Mode.CheckOnlyAscii => try checkOnly(arena, args),
         // shell output => capped at 30 lines
         Mode.ShellOutput => try shellOutput(arena, args),
         Mode.ShellOutputAscii => try shellOutput(arena, args), // TODO
