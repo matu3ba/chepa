@@ -135,7 +135,6 @@ fn checkOnly(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
 // assume: len(word) > 0
 // assume: path described by /word/word/ and / not part of word
 fn isWordOk(word: []const u8) bool {
-    // TODO catch error.InvalidUtf8 from init
     var visited_space: bool = false;
     switch (word[0]) {
         '~' => return false, // leading tilde
@@ -144,10 +143,9 @@ fn isWordOk(word: []const u8) bool {
         else => {},
     }
 
-    var utf8 = (unicode.Utf8View.init(word) catch unreachable).iterator();
-    // visited_space - => error
-    // visited_space a => no error
-    // ==> switch case all cases
+    var utf8 = (unicode.Utf8View.init(word) catch {
+        return false;
+    }).iterator();
     // TODO testing if . is often used
     // TODO do \ escaped characters (some OSes disallow them)
     while (utf8.nextCodepointSlice()) |codepoint| {
@@ -203,7 +201,7 @@ fn isWordOk(word: []const u8) bool {
             },
             else => unreachable,
         }
-        std.debug.print("got codepoint {s}\n", .{codepoint});
+        //std.debug.print("got codepoint {s}\n", .{codepoint});
     }
     if (visited_space) return false; // ending empty space
     return true;
