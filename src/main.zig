@@ -216,21 +216,28 @@ fn isWordOk(word: []const u8) bool {
     return true;
 }
 
-fn shellOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
-    const max_msg: u32 = 30; // TODO option to set max_msg as cli flag
-    var cnt_msg: u32 = 0;
+// assume: mode != Mode.ShellOutput, mode != Mode.ShellOutputAscii
+fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, args: [][:0]u8) !u8 {
+    const max_msg: u32 = 30; // unused for FileOutputAscii, FileOutput
+    var cnt_msg: u32 = 0; // unused for FileOutputAscii, FileOutput
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
     const cwd = try process.getCwdAlloc(arena); // windows compatibility
     defer arena.free(cwd);
 
     var found_ctrlchars = false;
-    var found_newline = false;
+    var found_newline = false; // unused for FileOutputAscii, FileOutput
     var found_badchars = false;
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
-        if (enc == Encoding.Ascii) {
+        if (mode == Mode.FileOutputAscii or mode == Mode.ShellOutputAscii) {
             if (mem.eql(u8, args[i], "-a")) continue; // skip -a
+        }
+        if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
+            if (mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
+                i += 1;
+                continue;
+            }
         }
         const root_path = args[i];
         {
@@ -241,155 +248,52 @@ fn shellOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8
             skipItIfWindows(&it);
             while (it.next()) |entry| {
                 std.debug.assert(entry.len > 0);
-                if (isWordOkAscii(entry) == false) {
+                if (!isWordOkAscii(entry)) {
                     var has_ctrlchars = false;
                     var has_newline = false;
                     for (entry) |char| {
-                        if (ascii.isCntrl(char))
-                            has_ctrlchars = true;
-                        if (char == '\n')
-                            has_newline = true;
+                        if (ascii.isCntrl(char)) has_ctrlchars = true;
+                        if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
+                            if (char == '\n') has_newline = true;
+                        }
                     }
-                    if (has_ctrlchars)
-                        found_ctrlchars = true;
-                    if (has_newline)
-                        found_newline = true;
-                    if (has_ctrlchars) {
-                        try stdout.writeAll("'");
-                        try stdout.writeAll(root_path);
-                        try stdout.writeAll("' The abs. path contains ctrl chars\n");
-                    } else {
-                        try stdout.writeAll("'");
-                        try stdout.writeAll(real_path);
-                        try stdout.writeAll("' non-portable or bad\n");
+                    if (has_ctrlchars) found_ctrlchars = true;
+                    if (has_newline) found_newline = true;
+                    // TODO ctrl chars in root path
+                    switch (mode) {
+                        Mode.FileOutput, Mode.FileOutputAscii => {
+                            if (has_newline) {
+                                try file.writeAll("'");
+                                try file.writeAll(root_path);
+                                try file.writeAll("' newline in absolute HERE\n");
+                            } else {
+                                try file.writeAll(real_path);
+                                try file.writeAll("\n");
+                            }
+                            file.close();
+                            process.exit(1); // root path wrong
+                        },
+                        Mode.ShellOutput, Mode.ShellOutputAscii => {
+                            if (has_ctrlchars) {
+                                try file.writeAll("'");
+                                try file.writeAll(root_path);
+                                try file.writeAll("' The abs. path contains ctrl chars\n");
+                            } else {
+                                try file.writeAll("'");
+                                try file.writeAll(real_path);
+                                try file.writeAll("' non-portable or bad\n");
+                            }
+                            process.exit(1); // root path wrong
+                        },
+                        else => {},
                     }
-                    process.exit(1); // root path wrong
                 }
             }
         }
 
         //log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
-            fatal("unable to open root directory '{s}': {s}", .{
-                root_path, @errorName(err),
-            });
-        };
-        defer root_dir.close();
-        var walker = try root_dir.walk(arena);
-        defer walker.deinit();
-        while (try walker.next()) |entry| {
-            const basename = entry.basename;
-            //log.debug("file '{s}'", .{basename}); // fails at either d_\t/\n\r\v\f
-            //std.debug.print("basename[2]: {d}\n", .{basename[2]});
-            if (basename.len == 0 or isWordOkAscii(basename) == false) {
-                found_badchars = true;
-                var has_ctrlchars = false;
-                var has_newline = false;
-                for (basename) |char| {
-                    if (ascii.isCntrl(char))
-                        has_ctrlchars = true;
-                    if (char == '\n')
-                        has_newline = true;
-                }
-                if (has_ctrlchars)
-                    found_ctrlchars = true;
-                if (has_newline)
-                    found_newline = true;
-
-                const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
-                const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
-                defer arena.free(p_sup_dir);
-                //std.debug.print("resolvePosix(arena, {s})\n", .{p_sup_dir});
-                const rl_sup_dir = try fs.path.resolve(arena, &.{p_sup_dir});
-                defer arena.free(rl_sup_dir);
-                const rl_sup_dir_rel = try fs.path.relative(arena, cwd, rl_sup_dir);
-                defer arena.free(rl_sup_dir_rel);
-                //std.debug.print("fs.path.resolve result: '{s}'\n", .{rl_sup_dir});
-                // root folder is without control characters or terminate
-                // program would have been terminated
-                if (has_ctrlchars) {
-                    // if dir has control characters, then we dont want to print them.
-                    // however, walker would still visit them
-                    // => abort + only print the current one
-                    try stdout.writeAll("'");
-                    try stdout.writeAll(rl_sup_dir_rel);
-                    try stdout.writeAll("' has file with ctrl chars\n");
-                    return 2;
-                } else {
-                    try stdout.writeAll("'");
-                    try stdout.writeAll(entry.path);
-                    try stdout.writeAll("' non-portable or bad\n");
-                    cnt_msg += 1;
-                    if (cnt_msg == max_msg) {
-                        return 1;
-                    }
-                }
-            }
-        }
-    }
-    if (found_badchars)
-        return 1;
-    return 0;
-}
-
-fn fileOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
-    std.debug.assert(write_file != null);
-    // tmp data for realpath(), never to be references otherwise
-    var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
-    const cwd = try process.getCwdAlloc(arena); // windows compatibility
-    defer arena.free(cwd);
-
-    var found_ctrlchars = false;
-    var found_badchars = false;
-    var found_newline = false;
-    var i: u64 = 1; // skip program name
-    while (i < args.len) : (i += 1) {
-        if (enc == Encoding.Ascii) {
-            if (mem.eql(u8, args[i], "-a")) continue; // skip -a
-        }
-        if (mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
-            i += 1;
-            continue;
-        }
-        const root_path = args[i];
-        {
-            // ensure that super path does not contain any
-            // control characters, that might get printed later
-            const real_path = try os.realpath(root_path, &tmp_buf);
-            var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
-            skipItIfWindows(&it);
-            while (it.next()) |entry| {
-                std.debug.assert(entry.len > 0);
-                if (isWordOkAscii(entry) == false) {
-                    var has_ctrlchars = false;
-                    var has_newline = false;
-                    for (entry) |char| {
-                        if (ascii.isCntrl(char))
-                            has_ctrlchars = true;
-                        if (char == '\n')
-                            has_newline = true;
-                    }
-                    if (has_ctrlchars)
-                        found_ctrlchars = true;
-                    if (has_newline)
-                        found_newline = true;
-                    if (has_newline) {
-                        try write_file.?.writeAll("'");
-                        try write_file.?.writeAll(root_path);
-                        try write_file.?.writeAll("' newline in absolute HERE\n");
-                    } else {
-                        try write_file.?.writeAll(real_path);
-                        try write_file.?.writeAll("\n");
-                    }
-                    write_file.?.close();
-                    process.exit(1); // root path wrong
-                }
-            }
-        }
-
-        //log.debug("reading (recursively) file '{s}'", .{root_path});
-        var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
-            write_file.?.close();
+            if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) file.close();
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),
             });
@@ -407,23 +311,20 @@ fn fileOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8, writ
                 var has_ctrlchars = false;
                 var has_newline = false;
                 for (basename) |char| {
-                    if (ascii.isCntrl(char))
-                        has_ctrlchars = true;
-                    if (char == '\n')
-                        has_newline = true;
+                    if (ascii.isCntrl(char)) has_ctrlchars = true;
+                    if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) {
+                        if (char == '\n')
+                            has_newline = true;
+                    }
                 }
-                if (has_ctrlchars)
-                    found_ctrlchars = true;
-                if (has_newline)
-                    found_newline = true;
+                if (has_ctrlchars) found_ctrlchars = true;
+                if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) {
+                    if (has_newline)
+                        found_newline = true;
+                }
 
                 const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
-                const p_sup_dir = try mem.concat(arena, u8, &.{
-                    root_path,
-                    &[_]u8{fs.path.sep},
-                    entry.path,
-                    super_dir,
-                });
+                const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
                 defer arena.free(p_sup_dir);
                 //std.debug.print("resolvePosix(arena, {s})\n", .{p_sup_dir});
                 const rl_sup_dir = try fs.path.resolve(arena, &.{p_sup_dir});
@@ -432,25 +333,50 @@ fn fileOutput(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8, writ
                 defer arena.free(rl_sup_dir_rel);
                 //std.debug.print("fs.path.resolve result: '{s}'\n", .{rl_sup_dir});
                 // root folder is without control characters or terminate program would have been terminated
-                if (has_newline) {
-                    try write_file.?.writeAll("'");
-                    try write_file.?.writeAll(rl_sup_dir_rel);
-                    try write_file.?.writeAll("' newline in subfile HERE\n");
-                    return 3;
-                } else {
-                    try write_file.?.writeAll(entry.path);
-                    try write_file.?.writeAll("\n");
+                switch (mode) {
+                    Mode.FileOutput, Mode.FileOutputAscii => {
+                        if (has_newline) {
+                            try file.writeAll("'");
+                            try file.writeAll(rl_sup_dir_rel);
+                            try file.writeAll("' newline in subfile HERE\n");
+                            return 3;
+                        } else {
+                            try file.writeAll(entry.path);
+                            try file.writeAll("\n");
+                        }
+                    },
+                    Mode.ShellOutput, Mode.ShellOutputAscii => {
+                        if (has_ctrlchars) {
+                            try file.writeAll("'");
+                            try file.writeAll(rl_sup_dir_rel);
+                            try file.writeAll("' has file with ctrl chars\n");
+                            return 2;
+                        } else {
+                            try file.writeAll("'");
+                            try file.writeAll(entry.path);
+                            try file.writeAll("' non-portable or bad\n");
+                            cnt_msg += 1;
+                            if (cnt_msg == max_msg) {
+                                return 1;
+                            }
+                        }
+                    },
+                    else => {},
                 }
             }
         }
     }
-    if (found_newline) {
-        try stdout.writeAll("found newlines, please manually resolve in output file\n");
+    switch (mode) {
+        Mode.FileOutput, Mode.FileOutputAscii => {
+            if (found_newline) try stdout.writeAll("found newlines, please manually resolve in output file\n");
+            if (found_ctrlchars) return 2;
+            if (found_badchars) return 1;
+        },
+        Mode.ShellOutput, Mode.ShellOutputAscii => {
+            if (found_badchars) return 1;
+        },
+        else => {},
     }
-    if (found_ctrlchars)
-        return 2;
-    if (found_badchars)
-        return 1;
     return 0;
 }
 
@@ -550,11 +476,11 @@ pub fn main() !u8 {
         Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
         Mode.CheckOnlyAscii => try checkOnly(Encoding.Ascii, arena, args),
         // shell output => capped at 30 lines
-        Mode.ShellOutput => try shellOutput(Encoding.Utf8, arena, args),
-        Mode.ShellOutputAscii => try shellOutput(Encoding.Ascii, arena, args), // TODO finish
+        Mode.ShellOutput => try writeOutput(Mode.ShellOutput, &stdout, arena, args),
+        Mode.ShellOutputAscii => try writeOutput(Mode.ShellOutputAscii, &stdout, arena, args),
         // file output => files with '\n' marked
-        Mode.FileOutput => try fileOutput(Encoding.Utf8, arena, args, write_file),
-        Mode.FileOutputAscii => try fileOutput(Encoding.Ascii, arena, args, write_file), // TODO finish
+        Mode.FileOutput => try writeOutput(Mode.FileOutput, &(write_file.?), arena, args),
+        Mode.FileOutputAscii => try writeOutput(Mode.FileOutputAscii, &(write_file.?), arena, args),
     };
     // TODO close file on error
     return ret;
