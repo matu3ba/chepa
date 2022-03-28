@@ -28,7 +28,7 @@ const usage: []const u8 =
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
     log.err(format, args);
-    std.process.exit(1);
+    process.exit(1);
 }
 
 const CheckError = error{
@@ -105,10 +105,10 @@ inline fn skipItIfWindows(it: *mem.TokenIterator(u8)) void {
 
 // returns success or failure of the check
 // assume: correct cwd and args are given
-fn checkOnly(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
+fn checkOnly(arena: mem.Allocator, args: [][:0]u8) !u8 {
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
-        if (std.mem.eql(u8, args[i], "-c")) // skip -c
+        if (mem.eql(u8, args[i], "-c")) // skip -c
             continue;
         const root_path = args[i];
         var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
@@ -146,16 +146,16 @@ fn isWordOk(word: []const u8) bool {
     var utf8 = (unicode.Utf8View.init(word) catch {
         return false;
     }).iterator();
-    // TODO testing if . is often used
     // TODO do \ escaped characters (some OSes disallow them)
+    // TODO Is 1 switch prong in a padded variable faster?
     while (utf8.nextCodepointSlice()) |codepoint| {
         switch (codepoint.len) {
             0 => unreachable,
             1 => {
-                const char = codepoint[0];
+                const char = codepoint[0]; // U+0000...U+007F
                 switch (char) {
-                    0...31, 127 => return false, // Cntrl (includes '\n', '\r', '\t')
-                    ',', '`', '.' => return false,
+                    0...31 => return false, // Cntrl (includes '\n', '\r', '\t')
+                    ',', '`' => return false,
                     '-', '~' => {
                         if (visited_space) return false;
                         visited_space = false;
@@ -163,41 +163,37 @@ fn isWordOk(word: []const u8) bool {
                     ' ' => {
                         visited_space = true;
                     },
+                    127 => return false, // Cntrl
                     else => {
                         visited_space = false;
                     },
-                    // TODO utf8 127...255 ?
                 }
             },
             2 => {
-                const char = codepoint[0..2];
-                comptime std.debug.assert(char.len == 2);
-                switch (char) {
-                    // TODO cases
+                const char = mem.bytesAsValue(u16, codepoint[0..2]); // U+0080...U+07FF
+                switch (char.*) {
+                    128...159 => return false, // Cntrl (includes next line 0x85)
+                    160 => return false, // disallowed space: no-break space
                     else => {
                         visited_space = false;
                     },
                 }
             },
             3 => {
-                const char = codepoint[0..3];
-                comptime std.debug.assert(char.len == 3);
-                switch (char) {
-                    // TODO cases
+                const char = mem.bytesAsValue(u24, codepoint[0..4]); // U+0800...U+FFFF
+                switch (char.*) {
+                    // disallowed spaces, see README.md
+                    0x1680, 0x180e, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004 => return false,
+                    0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x200b => return false,
+                    0x200c, 0x200d, 0x2028, 0x2029, 0x202f, 0x205f, 0x2060 => return false,
+                    0x3000, 0xfeff => return false,
                     else => {
                         visited_space = false;
                     },
                 }
             },
             4 => {
-                const char = codepoint[0..4];
-                comptime std.debug.assert(char.len == 4);
-                switch (char) {
-                    // TODO cases
-                    else => {
-                        visited_space = false;
-                    },
-                }
+                visited_space = false; // U+10000...U+10FFFF
             },
             else => unreachable,
         }
@@ -207,10 +203,10 @@ fn isWordOk(word: []const u8) bool {
     return true;
 }
 
-fn checkOnlyUtf8(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
+fn checkOnlyUtf8(arena: mem.Allocator, args: [][:0]u8) !u8 {
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
-        if (std.mem.eql(u8, args[i], "-c")) // skip -c
+        if (mem.eql(u8, args[i], "-c")) // skip -c
             continue;
         const root_path = args[i];
         var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
@@ -229,14 +225,14 @@ fn checkOnlyUtf8(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
         while (try walker.next()) |entry| {
             const basename = entry.basename;
             std.debug.assert(basename.len > 0);
-            if (isFilenamePortAscii(basename) == false)
+            if (!isWordOk(basename))
                 return 1;
         }
     }
     return 0;
 }
 
-fn shellOutput(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
+fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
     const max_msg: u32 = 30; // TODO option to set max_msg as cli flag
     var cnt_msg: u32 = 0;
     // tmp data for realpath(), never to be references otherwise
@@ -280,7 +276,7 @@ fn shellOutput(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
                         try stdout.writeAll(real_path);
                         try stdout.writeAll("' has non-portable ascii symbols\n");
                     }
-                    std.process.exit(1); // root path wrong
+                    process.exit(1); // root path wrong
                 }
             }
         }
@@ -350,7 +346,7 @@ fn shellOutput(arena: std.mem.Allocator, args: [][:0]u8) !u8 {
     return 0;
 }
 
-fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File) !u8 {
+fn fileOutput(arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
     std.debug.assert(write_file != null);
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
@@ -362,7 +358,7 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
     var found_newline = false;
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
-        if (std.mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
+        if (mem.eql(u8, args[i], "-outfile")) { // skip -outfile + filename
             i += 1;
             continue;
         }
@@ -397,7 +393,7 @@ fn fileOutput(arena: std.mem.Allocator, args: [][:0]u8, write_file: ?std.fs.File
                         try write_file.?.writeAll("\n");
                     }
                     write_file.?.close();
-                    std.process.exit(1); // root path wrong
+                    process.exit(1); // root path wrong
                 }
             }
         }
@@ -485,7 +481,7 @@ pub const Mode = enum {
 };
 
 // never returns Mode, but an error to bubble up to main
-fn cleanup(write_file: *?std.fs.File) !Mode {
+fn cleanup(write_file: *?fs.File) !Mode {
     if (write_file.* != null) {
         write_file.*.?.close();
     }
@@ -510,7 +506,7 @@ fn cleanup(write_file: *?std.fs.File) !Mode {
 // see https://github.com/romkatv/gitstatus/blob/master/docs/listdir.md
 // TODO benchmarks to show this
 pub fn main() !u8 {
-    var write_file: ?std.fs.File = null;
+    var write_file: ?fs.File = null;
     var mode: Mode = Mode.ShellOutput; // default execution mode
     // 1. read path names from cli args
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -520,16 +516,16 @@ pub fn main() !u8 {
     defer process.argsFree(arena, args);
     if (args.len <= 1) {
         try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
-        std.process.exit(1);
+        process.exit(1);
     }
     if (args.len >= 255) {
         try stdout.writer().writeAll("At maximum 255 arguments are supported\n");
-        std.process.exit(1);
+        process.exit(1);
     }
 
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
-        if (std.mem.eql(u8, args[i], "-outfile")) {
+        if (mem.eql(u8, args[i], "-outfile")) {
             mode = switch (mode) {
                 Mode.ShellOutput => Mode.FileOutput,
                 Mode.ShellOutputAscii => Mode.FileOutputAscii,
@@ -539,16 +535,16 @@ pub fn main() !u8 {
                 return error.InvalidArgument;
             }
             i += 1;
-            write_file = try std.fs.cwd().createFile(args[i], .{});
+            write_file = try fs.cwd().createFile(args[i], .{});
         }
-        if (std.mem.eql(u8, args[i], "-c")) {
+        if (mem.eql(u8, args[i], "-c")) {
             mode = switch (mode) {
                 Mode.ShellOutput => Mode.CheckOnly,
                 Mode.ShellOutputAscii => Mode.CheckOnlyAscii,
                 else => try cleanup(&write_file), // hack around stage1
             };
         }
-        if (std.mem.eql(u8, args[i], "-a")) {
+        if (mem.eql(u8, args[i], "-a")) {
             mode = switch (mode) {
                 Mode.ShellOutput => Mode.ShellOutputAscii,
                 Mode.CheckOnly => Mode.CheckOnlyAscii,

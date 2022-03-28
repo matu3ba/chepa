@@ -114,8 +114,10 @@ Problems for storing problems for user-inspection and usage in tools
 0xc     U+000C  form feed                     b'\x0c'
 0xd     U+000D  carriage return               b'\r'
 0x20    U+0020  space                         b' '
+----
 0x85    U+0085  next line                     b'\xc2\x85'
 0xa0    U+00A0  no-break space                b'\xc2\xa0'
+----
 0x1680  U+1680  ogham space mark              b'\xe1\x9a\x80'
 0x180e  U+180E  mongolian vowel separator     b'\xe1\xa0\x8e'
 0x2000  U+2000  en quad                       b'\xe2\x80\x80'
