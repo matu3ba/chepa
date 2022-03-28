@@ -67,23 +67,16 @@ fn isFilenameSaneUtf8(path: []u8) CheckError!void {
 
 // POSIX portable file name character set
 fn isCharPosixPortable(char: u8) bool {
-    // 0-9
-    if (0x30 <= char and char <= 0x39)
-        return true;
-    // a-z
-    if (0x41 <= char and char <= 0x5A)
-        return true;
-    // A-Z
-    if (0x61 <= char and char <= 0x7A)
-        return true;
-    // 2D `-`, 2E `.`, 5F `_`
-    if (char == 0x2D or char == 0x2E or char == 0x5F)
-        return true;
-    return false;
+    switch (char) {
+        0x30...0x39, 0x41...0x5A, 0x61...0x7A => return true, // 0-9, a-z, A-Z
+        0x2D, 0x2E, 0x5F => return true, // 2D `-`, 2E `.`, 5F `_`
+        else => return false,
+    }
 }
 
 // assume: path.len > 0
-fn isFilenamePortAscii(path: []const u8) bool {
+fn isWordOkAscii(path: []const u8) bool {
+    if (path[0] == '-') return false;
     for (path) |char| {
         if (isCharPosixPortable(char) == false) return false;
     }
@@ -122,7 +115,7 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
             std.debug.assert(entry.len > 0);
             switch (enc) {
                 Encoding.Ascii => {
-                    if (!isFilenamePortAscii(entry)) return 1;
+                    if (!isWordOkAscii(entry)) return 1;
                 },
                 Encoding.Utf8 => {
                     if (!isWordOk(entry)) return 1;
@@ -136,7 +129,7 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
         while (try walker.next()) |entry| {
             const basename = entry.basename;
             std.debug.assert(basename.len > 0);
-            if (isFilenamePortAscii(basename) == false)
+            if (isWordOkAscii(basename) == false)
                 return 1;
         }
     }
@@ -236,7 +229,7 @@ fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
             skipItIfWindows(&it);
             while (it.next()) |entry| {
                 std.debug.assert(entry.len > 0);
-                if (entry.len == 0 or isFilenamePortAscii(entry) == false) {
+                if (isWordOkAscii(entry) == false) {
                     var has_ctrlchars = false;
                     var has_newline = false;
                     for (entry) |char| {
@@ -250,13 +243,13 @@ fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
                     if (has_newline)
                         found_newline = true;
                     if (has_ctrlchars) {
-                        try stdout.writeAll("subfile of '");
+                        try stdout.writeAll("'");
                         try stdout.writeAll(root_path);
-                        try stdout.writeAll("' has control characters in its absolute path\n");
+                        try stdout.writeAll("' The abs. path contains ctrl chars\n");
                     } else {
                         try stdout.writeAll("'");
                         try stdout.writeAll(real_path);
-                        try stdout.writeAll("' has non-portable ascii symbols\n");
+                        try stdout.writeAll("' non-portable or bad\n");
                     }
                     process.exit(1); // root path wrong
                 }
@@ -276,7 +269,7 @@ fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
             const basename = entry.basename;
             //log.debug("file '{s}'", .{basename}); // fails at either d_\t/\n\r\v\f
             //std.debug.print("basename[2]: {d}\n", .{basename[2]});
-            if (basename.len == 0 or isFilenamePortAscii(basename) == false) {
+            if (basename.len == 0 or isWordOkAscii(basename) == false) {
                 found_badchars = true;
                 var has_ctrlchars = false;
                 var has_newline = false;
@@ -313,10 +306,9 @@ fn shellOutput(arena: mem.Allocator, args: [][:0]u8) !u8 {
                 } else {
                     try stdout.writeAll("'");
                     try stdout.writeAll(entry.path);
-                    try stdout.writeAll("' has non-portable ascii chars\n");
+                    try stdout.writeAll("' non-portable or bad\n");
                     cnt_msg += 1;
                     if (cnt_msg == max_msg) {
-                        try stdout.writeAll("' has non-portable ascii chars\n");
                         return 1;
                     }
                 }
@@ -353,7 +345,7 @@ fn fileOutput(arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
             skipItIfWindows(&it);
             while (it.next()) |entry| {
                 std.debug.assert(entry.len > 0);
-                if (isFilenamePortAscii(entry) == false) {
+                if (isWordOkAscii(entry) == false) {
                     var has_ctrlchars = false;
                     var has_newline = false;
                     for (entry) |char| {
@@ -395,7 +387,7 @@ fn fileOutput(arena: mem.Allocator, args: [][:0]u8, write_file: ?fs.File) !u8 {
             //log.debug("file '{s}'", .{basename}); // fails at either d_\t/\n\r\v\f
             //std.debug.print("basename[2]: {d}\n", .{basename[2]});
             std.debug.assert(basename.len > 0);
-            if (isFilenamePortAscii(basename) == false) {
+            if (isWordOkAscii(basename) == false) {
                 found_badchars = true;
                 var has_ctrlchars = false;
                 var has_newline = false;

@@ -12,14 +12,73 @@ const Testdata = struct {
 const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.CheckOnly, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
+
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
+
     Testdata{ .mode = Mode.ShellOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
+
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
+
     Testdata{ .mode = Mode.FileOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
+
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
 };
 
 fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [Testcases.len]*bld.RunStep {
@@ -33,21 +92,20 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
         const inttest_arg = b.pathJoin(&.{ b.build_root, tcases[i].foldername });
         test_cases[i].addArgs(&.{inttest_arg});
         switch (tcases[i].mode) {
-            Mode.CheckOnly => test_cases[i].addArgs(&.{"-c"}), // TODO more test cases for utf8
-            //Mode.CheckOnlyAscii => test_cases[i].addArgs(&.{"-c"}),
-            Mode.FileOutput => { // TODO more test cases for utf8
+            Mode.CheckOnly => test_cases[i].addArgs(&.{"-c"}),
+            Mode.CheckOnlyAscii => test_cases[i].addArgs(&.{ "-a", "-c" }),
+            Mode.FileOutput => {
                 // multiple executables write same file
                 const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
                 test_cases[i].addArgs(&.{ "-outfile", tmpfile_path });
             },
-            //Mode.FileOutputAscii => {
-            //    // multiple executables write same file
-            //    const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
-            //    test_cases[i].addArgs(&.{ "-outfile", tmpfile_path });
-            //},
-            Mode.ShellOutput => {}, // TODO more test cases for utf8
-            //Mode.ShellOutputAscii => {},
-            else => {},
+            Mode.FileOutputAscii => {
+                // multiple executables write same file
+                const tmpfile_path = b.pathJoin(&.{ b.build_root, "zig-cache/tmp/inttest.txt" });
+                test_cases[i].addArgs(&.{ "-a", "-outfile", tmpfile_path });
+            },
+            Mode.ShellOutput => {},
+            Mode.ShellOutputAscii => test_cases[i].addArgs(&.{"-c"}),
         }
     }
     return test_cases;
