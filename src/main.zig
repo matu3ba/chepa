@@ -586,6 +586,7 @@ fn cleanup(write_file: *?fs.File) !Mode {
 // 1 bad pattern, in case of -c option: found something bad
 // 2 control character
 // 3 newline occured (only in case of -outfile)
+// 4 invalid unicode
 // + other error codes generated from zig
 
 // assume: no file `-outfile` exists
