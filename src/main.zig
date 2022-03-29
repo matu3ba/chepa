@@ -312,15 +312,14 @@ fn writeOutputRoot(
     comptime mode: Mode,
     comptime Mfileout: Mode,
     comptime Mshellout: Mode,
-    ctrl: bool,
-    newline: bool,
+    nl_ctrl: bool,
     file: *const fs.File,
     real_path: []u8,
     root_path: [:0]u8,
 ) !void {
     switch (mode) {
         Mfileout => {
-            if (newline) {
+            if (nl_ctrl) { // newline
                 try file.writeAll("'");
                 try file.writeAll(root_path);
                 try file.writeAll("' newline in absolute HERE\n");
@@ -332,7 +331,7 @@ fn writeOutputRoot(
             process.exit(1); // root path wrong
         },
         Mshellout => {
-            if (ctrl) {
+            if (nl_ctrl) { // ctrl char
                 try file.writeAll("'");
                 try file.writeAll(root_path);
                 try file.writeAll("' The abs. path contains ctrl chars\n");
@@ -347,7 +346,7 @@ fn writeOutputRoot(
     }
 }
 
-// assume: mode != Mode.ShellOutput, mode != Mode.ShellOutputAscii
+// writes output to File (stdout, open file etc)
 fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, args: [][:0]u8) !u8 {
     std.debug.assert(mode != Mode.CheckOnly and mode != Mode.CheckOnlyAscii);
     //usingnamespace if(condition) struct {
@@ -355,13 +354,14 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
     //} else struct{};
     const max_msg: u32 = 30; // unused for FileOutputAscii, FileOutput
     var cnt_msg: u32 = 0; // unused for FileOutputAscii, FileOutput
+    var found_newline = false; // unused for ShellOutputAscii, ShellOutput
+
     // tmp data for realpath(), never to be references otherwise
     var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
     const cwd = try process.getCwdAlloc(arena); // windows compatibility
     defer arena.free(cwd);
 
     var found_ctrlchars = false;
-    var found_newline = false; // unused for FileOutputAscii, FileOutput
     var found_badchars = false;
     var i: u64 = 1; // skip program name
     while (i < args.len) : (i += 1) {
@@ -396,13 +396,18 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                             }
                             if (has_ctrlchars) found_ctrlchars = true;
                             if (has_newline) found_newline = true;
+                            const arg_decision =
+                                switch (mode) {
+                                Mode.FileOutputAscii => has_newline,
+                                Mode.ShellOutputAscii => has_ctrlchars,
+                                else => unreachable,
+                            };
                             // TODO ctrl chars in root path
                             try writeOutputRoot(
                                 mode,
                                 Mode.FileOutputAscii,
                                 Mode.ShellOutputAscii,
-                                has_ctrlchars,
-                                has_newline,
+                                arg_decision,
                                 file,
                                 real_path,
                                 root_path,
@@ -420,13 +425,18 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                             }
                             if (has_ctrlchars) found_ctrlchars = true;
                             if (has_newline) found_newline = true;
+                            const arg_decision =
+                                switch (mode) {
+                                Mode.FileOutput => has_newline,
+                                Mode.ShellOutput => has_ctrlchars,
+                                else => unreachable,
+                            };
                             // TODO ctrl chars in root path
                             try writeOutputRoot(
                                 mode,
                                 Mode.FileOutput,
                                 Mode.ShellOutput,
-                                has_ctrlchars,
-                                has_newline,
+                                arg_decision,
                                 file,
                                 real_path,
                                 root_path,
