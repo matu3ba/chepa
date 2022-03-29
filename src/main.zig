@@ -214,21 +214,29 @@ fn isWordOk(word: []const u8) bool {
     return true;
 }
 
+const StatusOkExt = enum {
+    Ok,
+    Antipattern,
+    CntrlChar,
+    Newline,
+    InvalUnicode,
+};
+
 // return codes: 0 ok, 1 antipattern, 2 cntrl, 3 newline, 4 invalid unicode
 // assume: len(word) > 0
 // assume: path described by /word/word/ and / not part of word
-fn isWordOkExtended(word: []const u8) u3 {
-    var status = 0;
+fn isWordOkExtended(word: []const u8) StatusOkExt {
+    var status: StatusOkExt = StatusOkExt.Ok;
     var visited_space: bool = false;
     switch (word[0]) {
         '~', '-', ' ' => {
-            status = 1;
+            status = StatusOkExt.Antipattern;
         }, // leading tilde,dash,empty space
         else => {},
     }
 
     var utf8 = (unicode.Utf8View.init(word) catch {
-        return 4;
+        return StatusOkExt.InvalUnicode;
     }).iterator();
     // TODO do \ escaped characters (some OSes disallow them)
     // TODO Is 1 switch prong in a padded variable faster?
@@ -239,27 +247,27 @@ fn isWordOkExtended(word: []const u8) u3 {
                 const char = codepoint[0]; // U+0000...U+007F
                 switch (char) {
                     0...9 => {
-                        status = 2;
+                        status = StatusOkExt.CntrlChar;
                     }, // Cntrl (includes '\n', '\r', '\t')
                     10 => {
-                        return 3;
+                        return StatusOkExt.Newline;
                     }, // Line Feed '\n'
                     11...31 => {
-                        status = 2;
+                        status = StatusOkExt.CntrlChar;
                     }, // Cntrl (includes '\n', '\r', '\t')
                     ',', '`' => {
-                        if (status != 2)
-                            status = 1;
+                        if (status != StatusOkExt.CntrlChar)
+                            status = StatusOkExt.Antipattern;
                     }, // antipattern
                     '-', '~' => {
-                        if (visited_space and status != 2)
-                            status = 1;
+                        if (visited_space and status != StatusOkExt.CntrlChar)
+                            status = StatusOkExt.Antipattern;
                     }, // antipattern
                     ' ' => {
                         visited_space = true;
                     },
                     127 => {
-                        status = 2;
+                        status = StatusOkExt.CntrlChar;
                     }, // Cntrl
                     else => {
                         visited_space = false;
@@ -270,11 +278,11 @@ fn isWordOkExtended(word: []const u8) u3 {
                 const char = mem.bytesAsValue(u16, codepoint[0..2]); // U+0080...U+07FF
                 switch (char.*) {
                     128...159 => {
-                        status = 2;
+                        status = StatusOkExt.CntrlChar;
                     }, // Cntrl (includes next line 0x85)
                     160 => {
-                        if (status != 2)
-                            status = 1;
+                        if (status != StatusOkExt.CntrlChar)
+                            status = StatusOkExt.Antipattern;
                     }, // disallowed space: no-break space
                     else => {
                         visited_space = false;
@@ -286,12 +294,13 @@ fn isWordOkExtended(word: []const u8) u3 {
                 switch (char.*) {
                     // disallowed spaces, see README.md
                     0x1680, 0x180e, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x200b => {
-                        if (status != 2)
-                            status = 1;
+                        if (status != StatusOkExt.CntrlChar)
+                            status = StatusOkExt.Antipattern;
                     },
+                    // disallowed spaces, see README.md (continued)
                     0x200c, 0x200d, 0x2028, 0x2029, 0x202f, 0x205f, 0x2060, 0x3000, 0xfeff => {
-                        if (status != 2)
-                            status = 1;
+                        if (status != StatusOkExt.CntrlChar)
+                            status = StatusOkExt.Antipattern;
                     },
                     else => {
                         visited_space = false;
@@ -305,9 +314,13 @@ fn isWordOkExtended(word: []const u8) u3 {
         }
         //std.debug.print("got codepoint {s}\n", .{codepoint});
     }
-    if (visited_space) return false; // ending empty space
-    return true;
+    if (visited_space) {
+        if (status != StatusOkExt.CntrlChar)
+            return StatusOkExt.Antipattern;
+    } // ending empty space
+    return status;
 }
+
 fn writeOutputRoot(
     comptime mode: Mode,
     comptime Mfileout: Mode,
@@ -349,9 +362,6 @@ fn writeOutputRoot(
 // writes output to File (stdout, open file etc)
 fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, args: [][:0]u8) !u8 {
     std.debug.assert(mode != Mode.CheckOnly and mode != Mode.CheckOnlyAscii);
-    //usingnamespace if(condition) struct {
-    //  max_msg: u32 = 30;
-    //} else struct{};
     const max_msg: u32 = 30; // unused for FileOutputAscii, FileOutput
     var cnt_msg: u32 = 0; // unused for FileOutputAscii, FileOutput
     var found_newline = false; // unused for ShellOutputAscii, ShellOutput
@@ -402,7 +412,6 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                                 Mode.ShellOutputAscii => has_ctrlchars,
                                 else => unreachable,
                             };
-                            // TODO ctrl chars in root path
                             try writeOutputRoot(
                                 mode,
                                 Mode.FileOutputAscii,
@@ -415,23 +424,35 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                         }
                     },
                     Mode.ShellOutput, Mode.FileOutput => {
-                        // TODO FIXME
-                        if (!isWordOkAscii(entry)) {
-                            for (entry) |char| {
-                                if (ascii.isCntrl(char)) has_ctrlchars = true;
-                                if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
-                                    if (char == '\n') has_newline = true;
+                        const status: StatusOkExt = isWordOkExtended(entry);
+                        switch (status) {
+                            StatusOkExt.Ok => {},
+                            StatusOkExt.Antipattern => {},
+                            StatusOkExt.CntrlChar => {
+                                has_ctrlchars = true;
+                                found_ctrlchars = true;
+                            },
+                            StatusOkExt.Newline => {
+                                if (mode == Mode.FileOutput) {
+                                    has_newline = true;
+                                    found_newline = true;
                                 }
-                            }
-                            if (has_ctrlchars) found_ctrlchars = true;
-                            if (has_newline) found_newline = true;
-                            const arg_decision =
-                                switch (mode) {
-                                Mode.FileOutput => has_newline,
-                                Mode.ShellOutput => has_ctrlchars,
-                                else => unreachable,
-                            };
-                            // TODO ctrl chars in root path
+                                has_ctrlchars = true;
+                                found_ctrlchars = true;
+                            },
+                            StatusOkExt.InvalUnicode => {
+                                if (mode == Mode.ShellOutput or mode == Mode.ShellOutputAscii)
+                                    try file.writeAll("root path has invalid unicode!\n");
+                                return 4;
+                            },
+                        }
+                        const arg_decision =
+                            switch (mode) {
+                            Mode.FileOutput => has_newline,
+                            Mode.ShellOutput => has_ctrlchars,
+                            else => unreachable,
+                        };
+                        if (status != StatusOkExt.Ok) {
                             try writeOutputRoot(
                                 mode,
                                 Mode.FileOutput,
