@@ -308,9 +308,51 @@ fn isWordOkExtended(word: []const u8) u3 {
     if (visited_space) return false; // ending empty space
     return true;
 }
+fn writeOutputRoot(
+    comptime mode: Mode,
+    comptime Mfileout: Mode,
+    comptime Mshellout: Mode,
+    ctrl: bool,
+    newline: bool,
+    file: *const fs.File,
+    real_path: []u8,
+    root_path: [:0]u8,
+) !void {
+    switch (mode) {
+        Mfileout => {
+            if (newline) {
+                try file.writeAll("'");
+                try file.writeAll(root_path);
+                try file.writeAll("' newline in absolute HERE\n");
+            } else {
+                try file.writeAll(real_path);
+                try file.writeAll("\n");
+            }
+            file.close();
+            process.exit(1); // root path wrong
+        },
+        Mshellout => {
+            if (ctrl) {
+                try file.writeAll("'");
+                try file.writeAll(root_path);
+                try file.writeAll("' The abs. path contains ctrl chars\n");
+            } else {
+                try file.writeAll("'");
+                try file.writeAll(real_path);
+                try file.writeAll("' non-portable or bad\n");
+            }
+            process.exit(1); // root path wrong
+        },
+        else => unreachable,
+    }
+}
 
 // assume: mode != Mode.ShellOutput, mode != Mode.ShellOutputAscii
 fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, args: [][:0]u8) !u8 {
+    std.debug.assert(mode != Mode.CheckOnly and mode != Mode.CheckOnlyAscii);
+    //usingnamespace if(condition) struct {
+    //  max_msg: u32 = 30;
+    //} else struct{};
     const max_msg: u32 = 30; // unused for FileOutputAscii, FileOutput
     var cnt_msg: u32 = 0; // unused for FileOutputAscii, FileOutput
     // tmp data for realpath(), never to be references otherwise
@@ -341,47 +383,57 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
             skipItIfWindows(&it);
             while (it.next()) |entry| {
                 std.debug.assert(entry.len > 0);
-                // TODO ascii vs unicode
-                //switch(mode) {
-                if (!isWordOkAscii(entry)) {
-                    var has_ctrlchars = false;
-                    var has_newline = false;
-                    for (entry) |char| {
-                        if (ascii.isCntrl(char)) has_ctrlchars = true;
-                        if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
-                            if (char == '\n') has_newline = true;
+                var has_ctrlchars = false;
+                var has_newline = false;
+                switch (mode) {
+                    Mode.ShellOutputAscii, Mode.FileOutputAscii => {
+                        if (!isWordOkAscii(entry)) {
+                            for (entry) |char| {
+                                if (ascii.isCntrl(char)) has_ctrlchars = true;
+                                if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
+                                    if (char == '\n') has_newline = true;
+                                }
+                            }
+                            if (has_ctrlchars) found_ctrlchars = true;
+                            if (has_newline) found_newline = true;
+                            // TODO ctrl chars in root path
+                            try writeOutputRoot(
+                                mode,
+                                Mode.FileOutputAscii,
+                                Mode.ShellOutputAscii,
+                                has_ctrlchars,
+                                has_newline,
+                                file,
+                                real_path,
+                                root_path,
+                            );
                         }
-                    }
-                    if (has_ctrlchars) found_ctrlchars = true;
-                    if (has_newline) found_newline = true;
-                    // TODO ctrl chars in root path
-                    switch (mode) {
-                        Mode.FileOutput, Mode.FileOutputAscii => {
-                            if (has_newline) {
-                                try file.writeAll("'");
-                                try file.writeAll(root_path);
-                                try file.writeAll("' newline in absolute HERE\n");
-                            } else {
-                                try file.writeAll(real_path);
-                                try file.writeAll("\n");
+                    },
+                    Mode.ShellOutput, Mode.FileOutput => {
+                        // TODO FIXME
+                        if (!isWordOkAscii(entry)) {
+                            for (entry) |char| {
+                                if (ascii.isCntrl(char)) has_ctrlchars = true;
+                                if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
+                                    if (char == '\n') has_newline = true;
+                                }
                             }
-                            file.close();
-                            process.exit(1); // root path wrong
-                        },
-                        Mode.ShellOutput, Mode.ShellOutputAscii => {
-                            if (has_ctrlchars) {
-                                try file.writeAll("'");
-                                try file.writeAll(root_path);
-                                try file.writeAll("' The abs. path contains ctrl chars\n");
-                            } else {
-                                try file.writeAll("'");
-                                try file.writeAll(real_path);
-                                try file.writeAll("' non-portable or bad\n");
-                            }
-                            process.exit(1); // root path wrong
-                        },
-                        else => {},
-                    }
+                            if (has_ctrlchars) found_ctrlchars = true;
+                            if (has_newline) found_newline = true;
+                            // TODO ctrl chars in root path
+                            try writeOutputRoot(
+                                mode,
+                                Mode.FileOutput,
+                                Mode.ShellOutput,
+                                has_ctrlchars,
+                                has_newline,
+                                file,
+                                real_path,
+                                root_path,
+                            );
+                        }
+                    },
+                    else => {},
                 }
             }
         }
