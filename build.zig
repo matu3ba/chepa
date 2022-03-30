@@ -10,6 +10,8 @@ const Testdata = struct {
 };
 // 0123, 3 only with file output, 01 only with check
 const Testcases = [_]Testdata{
+    // TODO test control sequences in root path
+    // TODO utf8
     Testdata{ .mode = Mode.CheckOnly, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },

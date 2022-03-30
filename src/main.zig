@@ -83,6 +83,60 @@ fn isWordOkAscii(path: []const u8) bool {
     return true;
 }
 
+const StatusOkAsciiExt = enum {
+    Ok,
+    Antipattern,
+    CntrlChar,
+    Newline,
+};
+
+// assume: path.len > 0
+fn isWordOkAsciiExtended(word: []const u8) StatusOkAsciiExt {
+    var status: StatusOkAsciiExt = StatusOkAsciiExt.Ok;
+    var visited_space: bool = false;
+    switch (word[0]) {
+        '~', '-', ' ' => {
+            status = StatusOkAsciiExt.Antipattern;
+        }, // leading tilde,dash,empty space
+        else => {},
+    }
+    for (word) |char| {
+        switch (char) {
+            0...9 => {
+                status = StatusOkAsciiExt.CntrlChar;
+            }, // Cntrl (includes '\n', '\r', '\t')
+            10 => {
+                return StatusOkAsciiExt.Newline;
+            }, // Line Feed '\n'
+            11...31 => {
+                status = StatusOkAsciiExt.CntrlChar;
+            }, // Cntrl (includes '\n', '\r', '\t')
+            ',', '`' => {
+                if (status != StatusOkAsciiExt.CntrlChar)
+                    status = StatusOkAsciiExt.Antipattern;
+            }, // antipattern
+            '-', '~' => {
+                if (visited_space and status != StatusOkAsciiExt.CntrlChar)
+                    status = StatusOkAsciiExt.Antipattern;
+            }, // antipattern
+            ' ' => {
+                visited_space = true;
+            },
+            127 => {
+                status = StatusOkAsciiExt.CntrlChar;
+            }, // Cntrl
+            else => {
+                visited_space = false;
+            },
+        }
+    }
+
+    if (visited_space and status != StatusOkAsciiExt.CntrlChar) {
+        return StatusOkAsciiExt.Antipattern;
+    } // ending empty space
+    return status;
+}
+
 inline fn skipItIfWindows(it: *mem.TokenIterator(u8)) void {
     const native_os = builtin.target.os.tag;
     switch (native_os) {
@@ -153,7 +207,6 @@ fn isWordOk(word: []const u8) bool {
         '~', '-', ' ' => return false, // leading tilde,dash,empty space
         else => {},
     }
-
     var utf8 = (unicode.Utf8View.init(word) catch {
         return false;
     }).iterator();
@@ -314,48 +367,83 @@ fn isWordOkExtended(word: []const u8) StatusOkExt {
         }
         //std.debug.print("got codepoint {s}\n", .{codepoint});
     }
-    if (visited_space) {
-        if (status != StatusOkExt.CntrlChar)
-            return StatusOkExt.Antipattern;
+    if (visited_space and status != StatusOkExt.CntrlChar) {
+        return StatusOkExt.Antipattern;
     } // ending empty space
     return status;
 }
 
-fn writeOutputRoot(
+fn writeRes(
+    comptime phase: Phase,
     comptime mode: Mode,
-    comptime Mfileout: Mode,
-    comptime Mshellout: Mode,
     nl_ctrl: bool,
     file: *const fs.File,
-    real_path: []u8,
-    root_path: [:0]u8,
+    abs_path: []const u8,
+    short_path: []const u8,
 ) !void {
-    switch (mode) {
-        Mfileout => {
-            if (nl_ctrl) { // newline
-                try file.writeAll("'");
-                try file.writeAll(root_path);
-                try file.writeAll("' newline in absolute HERE\n");
-            } else {
-                try file.writeAll(real_path);
-                try file.writeAll("\n");
+    switch (phase) {
+        Phase.RootPath => {
+            switch (mode) {
+                Mode.FileOutput, Mode.FileOutputAscii => {
+                    if (nl_ctrl) { // newline
+                        try file.writeAll("'");
+                        try file.writeAll(short_path);
+                        try file.writeAll("' newline in absolute HERE\n");
+                    } else {
+                        try file.writeAll(abs_path);
+                        try file.writeAll("\n");
+                    }
+                    file.close();
+                    process.exit(1); // root path wrong, TODO fix this
+                },
+                Mode.ShellOutputAscii, Mode.ShellOutput => {
+                    if (nl_ctrl) { // ctrl char
+                        try file.writeAll("'");
+                        try file.writeAll(short_path);
+                        try file.writeAll("' The abs. path contains ctrl chars\n");
+                        process.exit(2); // root path wrong
+                    } else {
+                        try file.writeAll("'");
+                        try file.writeAll(abs_path);
+                        try file.writeAll("' non-portable or bad\n");
+                        process.exit(1); // root path wrong
+                    }
+                },
+                else => unreachable,
             }
-            file.close();
-            process.exit(1); // root path wrong
         },
-        Mshellout => {
-            if (nl_ctrl) { // ctrl char
-                try file.writeAll("'");
-                try file.writeAll(root_path);
-                try file.writeAll("' The abs. path contains ctrl chars\n");
-            } else {
-                try file.writeAll("'");
-                try file.writeAll(real_path);
-                try file.writeAll("' non-portable or bad\n");
+        Phase.ChildPaths => {
+            switch (mode) {
+                Mode.FileOutput, Mode.FileOutputAscii => {
+                    if (nl_ctrl) {
+                        try file.writeAll("'");
+                        //try file.writeAll(rl_sup_dir_rel);
+                        try file.writeAll(abs_path);
+                        try file.writeAll("' newline in subfile HERE\n");
+                        //return 3;
+                    } else {
+                        //try file.writeAll(entry.path);
+                        try file.writeAll(short_path);
+                        try file.writeAll("\n");
+                    }
+                },
+                Mode.ShellOutput, Mode.ShellOutputAscii => {
+                    if (nl_ctrl) {
+                        try file.writeAll("'");
+                        try file.writeAll(abs_path);
+                        //try file.writeAll(rl_sup_dir_rel);
+                        try file.writeAll("' has file with ctrl chars\n");
+                        //return 2;
+                    } else {
+                        try file.writeAll("'");
+                        try file.writeAll(short_path);
+                        //&try file.writeAll(entry.path);
+                        try file.writeAll("' non-portable or bad\n");
+                    }
+                },
+                else => unreachable,
             }
-            process.exit(1); // root path wrong
         },
-        else => unreachable,
     }
 }
 
@@ -397,30 +485,53 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                 var has_newline = false;
                 switch (mode) {
                     Mode.ShellOutputAscii, Mode.FileOutputAscii => {
-                        if (!isWordOkAscii(entry)) {
-                            for (entry) |char| {
-                                if (ascii.isCntrl(char)) has_ctrlchars = true;
+                        const status = isWordOkAsciiExtended(entry);
+                        switch (status) {
+                            StatusOkAsciiExt.Ok => {},
+                            StatusOkAsciiExt.Antipattern => {},
+                            StatusOkAsciiExt.CntrlChar => {
+                                has_ctrlchars = true;
+                                found_ctrlchars = true;
+                            },
+                            StatusOkAsciiExt.Newline => {
                                 if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
-                                    if (char == '\n') has_newline = true;
+                                    has_newline = true;
+                                    found_newline = true;
                                 }
-                            }
-                            if (has_ctrlchars) found_ctrlchars = true;
-                            if (has_newline) found_newline = true;
-                            const arg_decision =
-                                switch (mode) {
-                                Mode.FileOutputAscii => has_newline,
-                                Mode.ShellOutputAscii => has_ctrlchars,
-                                else => unreachable,
-                            };
-                            try writeOutputRoot(
+                            },
+                        }
+                        const arg_decision =
+                            switch (mode) {
+                            Mode.FileOutputAscii => has_newline,
+                            Mode.ShellOutputAscii => has_ctrlchars,
+                            else => unreachable,
+                        };
+                        if (status != StatusOkAsciiExt.Ok) {
+                            try writeRes(
+                                Phase.RootPath,
                                 mode,
-                                Mode.FileOutputAscii,
-                                Mode.ShellOutputAscii,
                                 arg_decision,
                                 file,
                                 real_path,
                                 root_path,
                             );
+                        }
+                        switch (status) {
+                            StatusOkAsciiExt.Ok => {},
+                            StatusOkAsciiExt.Antipattern => {
+                                return 1;
+                            },
+                            StatusOkAsciiExt.CntrlChar => {
+                                if (mode == Mode.ShellOutputAscii or mode == Mode.ShellOutput)
+                                    return 2;
+                            },
+                            StatusOkAsciiExt.Newline => {
+                                if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
+                                    return 3;
+                                } else {
+                                    unreachable;
+                                }
+                            },
                         }
                     },
                     Mode.ShellOutput, Mode.FileOutput => {
@@ -453,23 +564,40 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                             else => unreachable,
                         };
                         if (status != StatusOkExt.Ok) {
-                            try writeOutputRoot(
+                            try writeRes(
+                                Phase.RootPath,
                                 mode,
-                                Mode.FileOutput,
-                                Mode.ShellOutput,
                                 arg_decision,
                                 file,
                                 real_path,
                                 root_path,
                             );
                         }
+                        switch (status) {
+                            StatusOkExt.Ok => {},
+                            StatusOkExt.Antipattern => {
+                                return 1;
+                            },
+                            StatusOkExt.CntrlChar => {
+                                if (mode == Mode.ShellOutputAscii or mode == Mode.ShellOutput)
+                                    return 2;
+                            },
+                            StatusOkExt.Newline => {
+                                if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
+                                    return 3;
+                                } else {
+                                    unreachable;
+                                }
+                            },
+                            StatusOkExt.InvalUnicode => unreachable,
+                        }
                     },
-                    else => {},
+                    else => unreachable,
                 }
             }
         }
 
-        //log.debug("reading (recursively) file '{s}'", .{root_path});
+        log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
             if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) file.close();
             fatal("unable to open root directory '{s}': {s}", .{
@@ -484,79 +612,93 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
             //log.debug("file '{s}'", .{basename}); // fails at either d_\t/\n\r\v\f
             //std.debug.print("basename[2]: {d}\n", .{basename[2]});
             std.debug.assert(basename.len > 0);
-            if (isWordOkAscii(basename) == false) {
-                found_badchars = true;
-                var has_ctrlchars = false;
-                var has_newline = false;
-                for (basename) |char| {
-                    if (ascii.isCntrl(char)) has_ctrlchars = true;
-                    if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) {
-                        if (char == '\n')
-                            has_newline = true;
-                    }
-                }
-                if (has_ctrlchars) found_ctrlchars = true;
-                if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) {
-                    if (has_newline)
-                        found_newline = true;
-                }
 
-                const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
-                const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
-                defer arena.free(p_sup_dir);
-                //std.debug.print("resolvePosix(arena, {s})\n", .{p_sup_dir});
-                const rl_sup_dir = try fs.path.resolve(arena, &.{p_sup_dir});
-                defer arena.free(rl_sup_dir);
-                const rl_sup_dir_rel = try fs.path.relative(arena, cwd, rl_sup_dir);
-                defer arena.free(rl_sup_dir_rel);
-                //std.debug.print("fs.path.resolve result: '{s}'\n", .{rl_sup_dir});
-                // root folder is without control characters or terminate program would have been terminated
-                switch (mode) {
-                    Mode.FileOutput, Mode.FileOutputAscii => {
-                        if (has_newline) {
-                            try file.writeAll("'");
-                            try file.writeAll(rl_sup_dir_rel);
-                            try file.writeAll("' newline in subfile HERE\n");
-                            return 3;
-                        } else {
-                            try file.writeAll(entry.path);
-                            try file.writeAll("\n");
-                        }
-                    },
-                    Mode.ShellOutput, Mode.ShellOutputAscii => {
-                        if (has_ctrlchars) {
-                            try file.writeAll("'");
-                            try file.writeAll(rl_sup_dir_rel);
-                            try file.writeAll("' has file with ctrl chars\n");
-                            return 2;
-                        } else {
-                            try file.writeAll("'");
-                            try file.writeAll(entry.path);
-                            try file.writeAll("' non-portable or bad\n");
+            switch (mode) {
+                Mode.ShellOutputAscii, Mode.FileOutputAscii, Mode.ShellOutput, Mode.FileOutput => {
+                    var has_ctrlchars = false;
+                    var has_newline = false;
+
+                    const status = isWordOkAsciiExtended(basename);
+                    switch (status) {
+                        StatusOkAsciiExt.Ok => {},
+                        StatusOkAsciiExt.Antipattern => {
                             cnt_msg += 1;
-                            if (cnt_msg == max_msg) {
-                                return 1;
+                            found_badchars = true;
+                        },
+                        StatusOkAsciiExt.CntrlChar => {
+                            cnt_msg += 1;
+                            has_ctrlchars = true;
+                            found_ctrlchars = true;
+                        },
+                        StatusOkAsciiExt.Newline => {
+                            cnt_msg += 1;
+                            if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) {
+                                has_newline = true;
+                                found_newline = true;
+                            } else {
+                                has_ctrlchars = true;
+                                found_ctrlchars = true;
                             }
+                        }, // TODO perf: remove case Newline
+                    }
+                    const super_dir: []const u8 = &[_]u8{fs.path.sep} ++ "..";
+                    const p_sup_dir = try mem.concat(arena, u8, &.{ root_path, &[_]u8{fs.path.sep}, entry.path, super_dir });
+                    defer arena.free(p_sup_dir);
+                    //std.debug.print("resolvePosix(arena, {s})\n", .{p_sup_dir});
+                    const rl_sup_dir = try fs.path.resolve(arena, &.{p_sup_dir});
+                    defer arena.free(rl_sup_dir);
+                    const rl_sup_dir_rel = try fs.path.relative(arena, cwd, rl_sup_dir);
+                    defer arena.free(rl_sup_dir_rel);
+                    //std.debug.print("fs.path.resolve result: '{s}'\n", .{rl_sup_dir});
+                    // root folder is without control characters or terminate program would have been terminated
+
+                    const arg_decision =
+                        switch (mode) {
+                        Mode.FileOutput => has_newline,
+                        Mode.FileOutputAscii => has_newline,
+                        Mode.ShellOutput => has_ctrlchars,
+                        Mode.ShellOutputAscii => has_ctrlchars,
+                        else => unreachable,
+                    };
+                    try writeRes(Phase.ChildPaths, mode, arg_decision, file, rl_sup_dir_rel, entry.path);
+                    if (cnt_msg == max_msg) {
+                        switch (mode) {
+                            Mode.FileOutput, Mode.FileOutputAscii => {
+                                if (found_newline) return 3;
+                                if (found_ctrlchars) return 2;
+                            },
+                            Mode.ShellOutput, Mode.ShellOutputAscii => {
+                                if (found_ctrlchars) return 2;
+                            },
+                            else => unreachable,
                         }
-                    },
-                    else => {},
-                }
+                        std.debug.assert(found_badchars);
+                        return 1;
+                    }
+                },
+                else => unreachable,
             }
         }
     }
     switch (mode) {
         Mode.FileOutput, Mode.FileOutputAscii => {
-            if (found_newline) try stdout.writeAll("found newlines, please manually resolve in output file\n");
+            if (found_newline) return 3;
             if (found_ctrlchars) return 2;
             if (found_badchars) return 1;
         },
         Mode.ShellOutput, Mode.ShellOutputAscii => {
+            if (found_ctrlchars) return 2;
             if (found_badchars) return 1;
         },
-        else => {},
+        else => unreachable,
     }
-    return 0;
+    return 0; // invariant: status == 0
 }
+
+const Phase = enum {
+    RootPath,
+    ChildPaths,
+};
 
 pub const Mode = enum {
     /// only check withs status code
