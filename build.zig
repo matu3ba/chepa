@@ -10,8 +10,8 @@ const Testdata = struct {
 };
 // 0123, 3 only with file output, 01 only with check
 const Testcases = [_]Testdata{
-    // TODO test control sequences in root path
     // TODO utf8
+    // TODO pipe stdout
     Testdata{ .mode = Mode.CheckOnly, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
@@ -22,6 +22,20 @@ const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x02", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x03", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x04", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x05", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x06", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x07", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x08", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x09", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x1c", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x1d", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x1e", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x1f", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/f_\x20", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
 
     Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
@@ -34,6 +48,7 @@ const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.CheckOnlyAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
 
     Testdata{ .mode = Mode.ShellOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
@@ -45,6 +60,7 @@ const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
     Testdata{ .mode = Mode.ShellOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
 
     Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
@@ -56,6 +72,7 @@ const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
     Testdata{ .mode = Mode.ShellOutputAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
 
     Testdata{ .mode = Mode.FileOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
@@ -68,6 +85,7 @@ const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
+    Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
     Testdata{ .mode = Mode.FileOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
 
     Testdata{ .mode = Mode.FileOutputAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
@@ -80,6 +98,7 @@ const Testcases = [_]Testdata{
     Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
     Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
+    Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
     Testdata{ .mode = Mode.FileOutputAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
 };
 

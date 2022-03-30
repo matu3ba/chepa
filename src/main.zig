@@ -19,11 +19,12 @@ const usage: []const u8 =
     \\ 2. -c              check if good (return status 0 or bad with status 1)
     \\ 3. -outfile file   write output to file instead to stdout
     \\ options:
-    \\ TODO
+    \\ -a                 ascii mode for performance (default is utf8 mode)
     \\
     \\ Shells may not show control characters correctly or misbehave,
     \\ so they are only written (with exception of \n occurence) to files.
     \\ '0x00' (0) is not representable.
+    \\ Utf8 is only checked to contain valid codepoints.
 ;
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
@@ -37,49 +38,49 @@ const CheckError = error{
     NonPortable,
 };
 
-// assume: path.len > 0
-fn isFilenameSaneUtf8(path: []u8) CheckError!void {
-    try stdout.writeAll("path:\n");
-    var visited_space: bool = true;
-
-    // leading and trailing space
-    if (path[0] == ' ') return error.Antipattern;
-    if (path[path.len - 1] == ' ') return error.Antipattern;
-
-    for (path) |char| {
-        if (ascii.isCntrl(char)) return error.ControlCharacter;
-
-        // TODO utf8
-        // dashes or hyphen after space
-        if (visited_space and (char == '-' or char == '~')) return error.Antipattern;
-        if (char == ' ') {
-            visited_space = true;
-        } else {
-            visited_space = false;
-        }
-
-        // comma and newline
-        if (char == ',') return error.Antipattern;
-        if (char == '\n') return error.Antipattern;
-    }
-    try stdout.writeAll("\n");
-}
-
 // POSIX portable file name character set
 fn isCharPosixPortable(char: u8) bool {
     switch (char) {
-        0x30...0x39, 0x41...0x5A, 0x61...0x7A => return true, // 0-9, a-z, A-Z
-        0x2D, 0x2E, 0x5F => return true, // 2D `-`, 2E `.`, 5F `_`
+        0x30...0x39, 0x41...0x5A, 0x61...0x7A, 0x2D, 0x2E, 0x5F => return true, // 0-9, a-z, A-Z, 2D `-`, 2E `.`, 5F `_`
         else => return false,
     }
 }
 
-// assume: path.len > 0
-fn isWordOkAscii(path: []const u8) bool {
-    if (path[0] == '-') return false;
-    for (path) |char| {
+// assume: len(word) > 0
+fn isWordSanePosixPortable(word: []const u8) bool {
+    if (word[0] == '-') return false;
+    for (word) |char| {
         if (isCharPosixPortable(char) == false) return false;
     }
+    return true;
+}
+
+// assume: len(word) > 0
+// assume: word described by /word/word/ and / not part of word
+fn isWordOkAscii(word: []const u8) bool {
+    var visited_space: bool = false;
+    switch (word[0]) {
+        '~', '-', ' ' => return false, // leading tilde,dash,empty space
+        else => {},
+    }
+    for (word) |char| {
+        switch (char) {
+            0...31 => return false, // Cntrl (includes '\n', '\r', '\t')
+            ',', '`' => return false,
+            '-', '~' => {
+                if (visited_space) return false;
+                visited_space = false;
+            }, // antipattern
+            ' ' => {
+                visited_space = true;
+            },
+            127 => return false, // Cntrl
+            else => {
+                visited_space = false;
+            },
+        }
+    }
+    if (visited_space) return false; // ending empty space
     return true;
 }
 
@@ -387,25 +388,23 @@ fn writeRes(
                 Mode.FileOutput, Mode.FileOutputAscii => {
                     if (nl_ctrl) { // newline
                         try file.writeAll("'");
-                        try file.writeAll(short_path);
+                        try file.writeAll(abs_path);
                         try file.writeAll("' newline in absolute HERE\n");
                     } else {
                         try file.writeAll(abs_path);
                         try file.writeAll("\n");
                     }
-                    file.close();
-                    process.exit(1); // root path wrong, TODO fix this
                 },
                 Mode.ShellOutputAscii, Mode.ShellOutput => {
                     if (nl_ctrl) { // ctrl char
                         try file.writeAll("'");
                         try file.writeAll(short_path);
-                        try file.writeAll("' The abs. path contains ctrl chars\n");
+                        try file.writeAll("' root abs path has ctrl chars\n");
                         process.exit(2); // root path wrong
                     } else {
                         try file.writeAll("'");
                         try file.writeAll(abs_path);
-                        try file.writeAll("' non-portable or bad\n");
+                        try file.writeAll("' is antipattern\n");
                         process.exit(1); // root path wrong
                     }
                 },
@@ -423,7 +422,7 @@ fn writeRes(
                         //return 3;
                     } else {
                         //try file.writeAll(entry.path);
-                        try file.writeAll(short_path);
+                        try file.writeAll(abs_path);
                         try file.writeAll("\n");
                     }
                 },
@@ -431,14 +430,12 @@ fn writeRes(
                     if (nl_ctrl) {
                         try file.writeAll("'");
                         try file.writeAll(abs_path);
-                        //try file.writeAll(rl_sup_dir_rel);
-                        try file.writeAll("' has file with ctrl chars\n");
+                        try file.writeAll("' has file with ctrl chars\n"); // OK
                         //return 2;
                     } else {
                         try file.writeAll("'");
                         try file.writeAll(short_path);
-                        //&try file.writeAll(entry.path);
-                        try file.writeAll("' non-portable or bad\n");
+                        try file.writeAll("' is antipattern\n");
                     }
                 },
                 else => unreachable,
@@ -518,13 +515,8 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                         }
                         switch (status) {
                             StatusOkAsciiExt.Ok => {},
-                            StatusOkAsciiExt.Antipattern => {
-                                return 1;
-                            },
-                            StatusOkAsciiExt.CntrlChar => {
-                                if (mode == Mode.ShellOutputAscii or mode == Mode.ShellOutput)
-                                    return 2;
-                            },
+                            StatusOkAsciiExt.Antipattern => return 1,
+                            StatusOkAsciiExt.CntrlChar => return 2,
                             StatusOkAsciiExt.Newline => {
                                 if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
                                     return 3;
@@ -575,13 +567,8 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                         }
                         switch (status) {
                             StatusOkExt.Ok => {},
-                            StatusOkExt.Antipattern => {
-                                return 1;
-                            },
-                            StatusOkExt.CntrlChar => {
-                                if (mode == Mode.ShellOutputAscii or mode == Mode.ShellOutput)
-                                    return 2;
-                            },
+                            StatusOkExt.Antipattern => return 1,
+                            StatusOkExt.CntrlChar => return 2,
                             StatusOkExt.Newline => {
                                 if (mode == Mode.FileOutputAscii or mode == Mode.FileOutput) {
                                     return 3;
@@ -597,7 +584,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
             }
         }
 
-        log.debug("reading (recursively) file '{s}'", .{root_path});
+        //log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
             if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) file.close();
             fatal("unable to open root directory '{s}': {s}", .{
@@ -660,7 +647,16 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                         Mode.ShellOutputAscii => has_ctrlchars,
                         else => unreachable,
                     };
-                    try writeRes(Phase.ChildPaths, mode, arg_decision, file, rl_sup_dir_rel, entry.path);
+                    if (status != StatusOkAsciiExt.Ok) {
+                        try writeRes(
+                            Phase.ChildPaths,
+                            mode,
+                            arg_decision,
+                            file,
+                            rl_sup_dir_rel,
+                            entry.path,
+                        );
+                    }
                     if (cnt_msg == max_msg) {
                         switch (mode) {
                             Mode.FileOutput, Mode.FileOutputAscii => {
