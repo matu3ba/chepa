@@ -1,7 +1,7 @@
 # check paths
 Fast checking of paths on conformance for shell coding and absence of antipatterns
 
-wip.
+alpha status with output and utf8 parts not yet being fully tested.
 
 ## use cases
 - use case 1: check for ASCII control characters
@@ -14,6 +14,10 @@ wip.
 - reusable as library
 * does not follow symlinks.
 - non-goal: special case for locations or languages, see paths_are_complex.md
+- potential followup project(s) or ideas for other people:
+  * 1. utf8 simd validation
+  * 2. language codes as list of allowed languages
+  * 3. system to query unicode database + compute changes
 
 ## planned interfaces
 1. write messages for safe inspection (default for cli, -l line count or no args)
@@ -50,10 +54,12 @@ opportunity for bad practice filenames.
 - [x] perf bench: cmds to invoke hyperfine with other contestors
 - [x] utf8: std.unicode interpret as unicode literals
 - [x] test data
+- [ ] unicode test data
 - [ ] capture output of stdout: wait for testing IPC+output capture to be less annoying
       (https://github.com/ziglang/zig/pull/11138 and follow-up PRs)
 - [ ] unicode test data
-- [ ] other cli option to validate paths as utf8 with zigstr
+- [ ] parallelize running in multiple processes
+- [ ] other cli option to validate paths as utf8 with zigstr (complex)
 - [ ] simd?
 - [ ] utf16
 - [ ] perf: refactor error case once #489 lands or dont refactor once #84 is implemented
@@ -109,6 +115,7 @@ Problems for storing problems for user-inspection and usage in tools
 
 #### utf8 whitespace characters
 ```txt
+taken from https://en.wikipedia.org/wiki/Whitespace_character#Unicode
 0x9     U+0009  character tabulation          b'\t'
 0xa     U+000A  line feed                     b'\n'
 0xb     U+000B  line tabulation               b'\x0b'
@@ -142,6 +149,36 @@ Problems for storing problems for user-inspection and usage in tools
 0x2060  U+2060  word joiner                   b'\xe2\x81\xa0'
 0x3000  U+3000  ideographic space             b'\xe3\x80\x80'
 0xfeff  U+FEFF  zero width non-breaking space b'\xef\xbb\xbf'
+```
+
+#### checked utf8 non-language specific control characters
+```txt
+https://en.wiktionary.org/wiki/Appendix:Control_characters
+0 not being representable in filepaths
+1-31 from Ascii
+127 del
+128-159 from extended Ascii
+173 soft hyphen
+other control characters are language specific and/or utf8 deprecated characters
+TODO clarify, if 8206 bidirectional text is used in filepaths, 8234 Left-to-Right Embedding
+```
+Note, that 128-159 have no fully specified semantics but are mostly understood as
+C1 controls with Alias names by ISO/IEC 6429:1992.
+See https://www.unicode.org/charts/PDF/U0080.pdf and the specification for details.
+
+#### utf8 deprecated characters
+```txt
+https://en.wikipedia.org/wiki/Unicode_character_property#Deprecated
+https://www.unicode.org/Public/15.0.0/ucd/PropList-15.0.0d2.txt
+0149          ; Deprecated # L&       LATIN SMALL LETTER N PRECEDED BY APOSTROPHE
+0673          ; Deprecated # Lo       ARABIC LETTER ALEF WITH WAVY HAMZA BELOW
+0F77          ; Deprecated # Mn       TIBETAN VOWEL SIGN VOCALIC RR
+0F79          ; Deprecated # Mn       TIBETAN VOWEL SIGN VOCALIC LL
+17A3..17A4    ; Deprecated # Lo   [2] KHMER INDEPENDENT VOWEL QAQ..KHMER INDEPENDENT VOWEL QAA
+206A..206F    ; Deprecated # Cf   [6] INHIBIT SYMMETRIC SWAPPING..NOMINAL DIGIT SHAPES
+2329          ; Deprecated # Ps       LEFT-POINTING ANGLE BRACKET
+232A          ; Deprecated # Pe       RIGHT-POINTING ANGLE BRACKET
+E0001         ; Deprecated # Cf       LANGUAGE TAG
 ```
 
 #### comparison of (non-fully optimized) unicode decoding

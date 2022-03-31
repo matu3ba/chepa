@@ -218,7 +218,7 @@ fn isWordOk(word: []const u8) bool {
             0 => unreachable,
             1 => {
                 const char = codepoint[0]; // U+0000...U+007F
-                switch (char) {
+                switch (char) { // perf: how does this get lowered?
                     0...31 => return false, // Cntrl (includes '\n', '\r', '\t')
                     ',', '`' => return false,
                     '-', '~' => {
@@ -226,7 +226,7 @@ fn isWordOk(word: []const u8) bool {
                         visited_space = false;
                     }, // antipattern
                     ' ' => {
-                        visited_space = true;
+                        visited_space = true; // TODO FIX THIS!
                     },
                     127 => return false, // Cntrl
                     else => {
@@ -239,6 +239,7 @@ fn isWordOk(word: []const u8) bool {
                 switch (char.*) {
                     128...159 => return false, // Cntrl (includes next line 0x85)
                     160 => return false, // disallowed space: no-break space
+                    173 => return false, // soft hyphen
                     else => {
                         visited_space = false;
                     },
@@ -331,13 +332,12 @@ fn isWordOkExtended(word: []const u8) StatusOkExt {
             2 => {
                 const char = mem.bytesAsValue(u16, codepoint[0..2]); // U+0080...U+07FF
                 switch (char.*) {
-                    128...159 => {
-                        status = StatusOkExt.CntrlChar;
-                    }, // Cntrl (includes next line 0x85)
+                    128...159 => status = StatusOkExt.CntrlChar, // Cntrl: also next line 0x85)
                     160 => {
                         if (status != StatusOkExt.CntrlChar)
                             status = StatusOkExt.Antipattern;
                     }, // disallowed space: no-break space
+                    173 => status = StatusOkExt.CntrlChar, // Cntrl: soft hyphen
                     else => {
                         visited_space = false;
                     },

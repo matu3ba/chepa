@@ -10,7 +10,8 @@ const Testdata = struct {
 };
 // 0123, 3 only with file output, 01 only with check
 const Testcases = [_]Testdata{
-    // TODO utf8
+    // TODO utf8 control sequences, deprecated characters
+    // => question: how to write the test cases?
     // TODO pipe stdout
     Testdata{ .mode = Mode.CheckOnly, .foldername = "zig-out/", .exp_exit_code = 0 },
     Testdata{ .mode = Mode.CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
@@ -105,11 +106,16 @@ const Testcases = [_]Testdata{
 fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [Testcases.len]*bld.RunStep {
     var tcases = Testcases;
     _ = tcases;
+    // idea: parallel test execution?
+    //var prev_test_case: ?*std.build.RunStep = null;
     var test_cases: [Testcases.len]*std.build.RunStep = undefined;
     for (tcases) |_, i| {
         test_cases[i] = exe.run(); // *RunStep
         test_cases[i].expected_exit_code = tcases[i].exp_exit_code;
         test_cases[i].step.dependOn(dep_step);
+        //        if (prev_test_case != null)
+        //            test_cases[i].step.dependOn(&(prev_test_case.?.step));
+        //
         const inttest_arg = b.pathJoin(&.{ b.build_root, tcases[i].foldername });
         test_cases[i].addArgs(&.{inttest_arg});
         switch (tcases[i].mode) {
@@ -128,6 +134,7 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
             Mode.ShellOutput => {},
             Mode.ShellOutputAscii => test_cases[i].addArgs(&.{"-a"}),
         }
+        //prev_test_case = test_cases[i];
     }
     return test_cases;
 }
@@ -173,7 +180,7 @@ pub fn build(b: *bld.Builder) void {
 
     const run_inttest_step = b.step("inttest", "Run integration tests");
     const testdata = createTests(b, exe, run_tfgen_step);
-    // TODO how to enumerate test sequences?
+    // idea: how to enumerate test sequences?
     for (testdata) |single_test| {
         run_inttest_step.dependOn(&single_test.step);
     }
@@ -189,7 +196,7 @@ pub fn build(b: *bld.Builder) void {
     const run_perfgen_step = b.step("perfgen", "Perf benchmark folders generation (requires ~440MB memory)");
     run_perfgen_step.dependOn(&run_perfgen.step); // perf bench data generation
 
-    //TODO check, if hyperfine is installed or build+use a proper c/c++ equivalent
+    //idea: check, if hyperfine is installed or build+use a proper c/c++ equivalent
     //hyperfine './zig-out/bin/chepa perf_folders/ -c' 'fd -j1 "blabla" perf_folders/'
     //hyperfine './zig-out/bin/chepa perf_folders/' 'fd -j1 "blabla" perf_folders/'
     //'./zig-out/bin/chepa perf_folders/ -c' ran
