@@ -24,7 +24,7 @@ const usage: []const u8 =
     \\ Shells may not show control characters correctly or misbehave,
     \\ so they are only written (with exception of \n occurence) to files.
     \\ '0x00' (0) is not representable.
-    \\ Utf8 is only checked to contain valid codepoints.
+    \\ UTF-8 is only checked to contain valid codepoints.
 ;
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {

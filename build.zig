@@ -185,6 +185,9 @@ pub fn build(b: *bld.Builder) void {
         run_inttest_step.dependOn(&single_test.step);
     }
 
+    // TODO expand build.zig: StdIoAction limits *make*, which executes *RunStep
+    // => requires comptime-selection of string compare function,
+
     const perfgen = b.addExecutable("perfgen", "src/perffolder_gen.zig");
     perfgen.setTarget(target);
     perfgen.setBuildMode(mode);
