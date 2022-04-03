@@ -71,6 +71,10 @@ Or at least to provide standard IPC for the most commonly used programs
 to disable and enable all ASCII control sequences.
 This prevents commands like `cat` or `ls` leading to ASCII control
 sequence execution.
+The most promising approach so far is
+https://arcan-fe.com/2022/04/02/the-day-of-a-new-command-line-interface-shell/,
+which describes shell programs as simplified/special display server with a pile
+of legacy code.
 2. Further more, it would be great if Kernels would not accepting filenames
 with ASCII control sequences and bad practice filenames like, but not limited to,
 newlines, leading dashes, commas, leading and trailing emptyspaces etc.
@@ -78,7 +82,6 @@ newlines, leading dashes, commas, leading and trailing emptyspaces etc.
 that working in the shell should be simple.
 Alternatively, shells must define a fast alternative program interface that does
 not rely on spaces for command separation.
-
 
 ## notes
 Example for bad practice file- and foldernames are
