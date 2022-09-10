@@ -12,20 +12,7 @@ const testing = std.testing;
 const stdout = std.io.getStdOut();
 const stderr = std.io.getStdErr();
 
-const usage: []const u8 =
-    \\ [mode] [options] path1 [path2 ..]
-    \\ mode:
-    \\ 1.                 cli mode for visual inspection (default cap to 30 lines)
-    \\ 2. -c              check if good (return status 0 or bad with status 1)
-    \\ 3. -outfile file   write output to file instead to stdout
-    \\ options:
-    \\ -a                 ascii mode for performance (default is utf8 mode)
-    \\
-    \\ Shells may not show control characters correctly or misbehave,
-    \\ so they are only written (with exception of \n occurence) to files.
-    \\ '0x00' (0) is not representable.
-    \\ UTF-8 is only checked to contain valid codepoints.
-;
+const cli_args = @import("cli_args.zig");
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
     log.err(format, args);
@@ -711,58 +698,6 @@ pub const Mode = enum {
     FileOutputAscii,
 };
 
-// never returns Mode, but an error to bubble up to main
-fn cleanup(write_file: *?fs.File) !Mode {
-    if (write_file.* != null) {
-        write_file.*.?.close();
-    }
-    return error.TestUnexpectedResult;
-}
-
-fn validateArgs(args: [][:0]u8, write_file_in: *?fs.File, mode_in: Mode) !Mode {
-    var mode: Mode = mode_in; // default execution mode
-    var write_file: *?fs.File = write_file_in;
-    if (args.len <= 1) {
-        try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
-        process.exit(1);
-    }
-    if (args.len >= 255) {
-        try stdout.writer().writeAll("At maximum 255 arguments are supported\n");
-        process.exit(1);
-    }
-    var i: u64 = 1; // skip program name
-    while (i < args.len) : (i += 1) {
-        if (mem.eql(u8, args[i], "-outfile")) {
-            mode = switch (mode) {
-                Mode.ShellOutput => Mode.FileOutput,
-                Mode.ShellOutputAscii => Mode.FileOutputAscii,
-                else => try cleanup(write_file), // hack around stage1
-            };
-            if (i + 1 >= args.len) {
-                return error.InvalidArgument;
-            }
-            i += 1;
-            write_file.* = try fs.cwd().createFile(args[i], .{});
-        }
-        if (mem.eql(u8, args[i], "-c")) {
-            mode = switch (mode) {
-                Mode.ShellOutput => Mode.CheckOnly,
-                Mode.ShellOutputAscii => Mode.CheckOnlyAscii,
-                else => try cleanup(write_file), // hack around stage1
-            };
-        }
-        if (mem.eql(u8, args[i], "-a")) {
-            mode = switch (mode) {
-                Mode.ShellOutput => Mode.ShellOutputAscii,
-                Mode.CheckOnly => Mode.CheckOnlyAscii,
-                Mode.FileOutput => Mode.FileOutputAscii,
-                else => try cleanup(write_file), // hack around stage1
-            };
-        }
-    }
-    return mode;
-}
-
 // return codes
 // 0 success
 // 1 bad pattern, in case of -c option: found something bad
@@ -793,7 +728,7 @@ pub fn main() !u8 {
     defer process.argsFree(arena, args);
 
     defer if (write_file != null) write_file.?.close();
-    mode = try validateArgs(args, &write_file, mode);
+    mode = try cli_args.validateArgs(args, &write_file, mode);
     const ret = switch (mode) {
         // only check status
         Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
