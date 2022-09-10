@@ -28,14 +28,45 @@ const usage: []const u8 =
 const Context = enum {
     /// Only validation of arguments
     Check,
-    /// Execution of arguments
+    /// Also execution of arguments
     Exec,
 };
 
 /// Dumb word completer based on input arguments
 /// (the repl/shell/editor applies it)
 /// Caller owns completion suggestions, if any.
-fn dumbWordComplArg() ![:0]u8 {}
+// fn dumbWordComplArg(word: [:0]u8, mode_in: Mode) ![:0]u8 {
+//     var mode: Mode = mode_in; // default execution mode
+//     // TODO completion with travistaloch comptime trie
+//
+//     while (i < args.len) : (i += 1) {
+//         if (mem.eql(u8, args[i], "-outfile")) {
+//             mode = switch (mode) {
+//                 Mode.ShellOutput => Mode.FileOutput,
+//                 Mode.ShellOutputAscii => Mode.FileOutputAscii,
+//                 else => return error.InvalidArgument,
+//             };
+//             if (i + 1 >= args.len) return error.InvalidArgument;
+//             i += 1;
+//         }
+//         if (mem.eql(u8, args[i], "-c")) {
+//             mode = switch (mode) {
+//                 Mode.ShellOutput => Mode.CheckOnly,
+//                 Mode.ShellOutputAscii => Mode.CheckOnlyAscii,
+//                 else => return error.InvalidArgument,
+//             };
+//         }
+//         if (mem.eql(u8, args[i], "-a")) {
+//             mode = switch (mode) {
+//                 Mode.ShellOutput => Mode.ShellOutputAscii,
+//                 Mode.CheckOnly => Mode.CheckOnlyAscii,
+//                 Mode.FileOutput => Mode.FileOutputAscii,
+//                 else => return error.InvalidArgument,
+//             };
+//         }
+//     }
+//     return mode;
+// }
 
 /// Simple syntax based completion suggestions (CS) with complete args
 /// (the repl/shell/editor applies it)
@@ -64,7 +95,7 @@ fn cleanup(write_file: *?fs.File) !Mode {
     if (write_file.* != null) {
         write_file.*.?.close();
     }
-    return error.TestUnexpectedResult;
+    return error.InvalidArgument;
 }
 
 /// Check input arguments for correctness and stop early.
