@@ -180,7 +180,7 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
                 },
             }
         }
-        var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
+        var root_dir = try fs.cwd().openIterableDir(root_path, .{ .no_follow = true });
         defer root_dir.close();
         var walker = try root_dir.walk(arena);
         defer walker.deinit();
@@ -585,7 +585,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
         }
 
         //log.debug("reading (recursively) file '{s}'", .{root_path});
-        var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
+        var root_dir = fs.cwd().openIterableDir(root_path, .{ .no_follow = true }) catch |err| {
             if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) file.close();
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),
@@ -697,13 +697,13 @@ const Phase = enum {
 };
 
 pub const Mode = enum {
-    /// only check withs status code
+    /// only check with status code
     CheckOnly,
-    /// ascii only check withs status code
+    /// ascii only check with status code
     CheckOnlyAscii,
-    /// heck with limited output
+    /// check with limited output
     ShellOutput,
-    /// ascii heck with limited output
+    /// ascii check with limited output
     ShellOutputAscii,
     /// check with output to file
     FileOutput,
@@ -717,6 +717,50 @@ fn cleanup(write_file: *?fs.File) !Mode {
         write_file.*.?.close();
     }
     return error.TestUnexpectedResult;
+}
+
+fn validateArgs(args: [][:0]u8, write_file_in: *?fs.File, mode_in: Mode) !Mode {
+    var mode: Mode = mode_in; // default execution mode
+    var write_file: *?fs.File = write_file_in;
+    if (args.len <= 1) {
+        try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
+        process.exit(1);
+    }
+    if (args.len >= 255) {
+        try stdout.writer().writeAll("At maximum 255 arguments are supported\n");
+        process.exit(1);
+    }
+    var i: u64 = 1; // skip program name
+    while (i < args.len) : (i += 1) {
+        if (mem.eql(u8, args[i], "-outfile")) {
+            mode = switch (mode) {
+                Mode.ShellOutput => Mode.FileOutput,
+                Mode.ShellOutputAscii => Mode.FileOutputAscii,
+                else => try cleanup(write_file), // hack around stage1
+            };
+            if (i + 1 >= args.len) {
+                return error.InvalidArgument;
+            }
+            i += 1;
+            write_file.* = try fs.cwd().createFile(args[i], .{});
+        }
+        if (mem.eql(u8, args[i], "-c")) {
+            mode = switch (mode) {
+                Mode.ShellOutput => Mode.CheckOnly,
+                Mode.ShellOutputAscii => Mode.CheckOnlyAscii,
+                else => try cleanup(write_file), // hack around stage1
+            };
+        }
+        if (mem.eql(u8, args[i], "-a")) {
+            mode = switch (mode) {
+                Mode.ShellOutput => Mode.ShellOutputAscii,
+                Mode.CheckOnly => Mode.CheckOnlyAscii,
+                Mode.FileOutput => Mode.FileOutputAscii,
+                else => try cleanup(write_file), // hack around stage1
+            };
+        }
+    }
+    return mode;
 }
 
 // return codes
@@ -738,56 +782,18 @@ fn cleanup(write_file: *?fs.File) !Mode {
 // see https://github.com/romkatv/gitstatus/blob/master/docs/listdir.md
 // TODO benchmarks to show this
 pub fn main() !u8 {
-    var write_file: ?fs.File = null;
-    var mode: Mode = Mode.ShellOutput; // default execution mode
     // 1. read path names from cli args
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_instance.deinit();
     const arena = arena_instance.allocator();
+
+    var write_file: ?fs.File = null;
+    var mode: Mode = Mode.ShellOutput; // default execution mode
     const args: [][:0]u8 = try process.argsAlloc(arena);
     defer process.argsFree(arena, args);
-    if (args.len <= 1) {
-        try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
-        process.exit(1);
-    }
-    if (args.len >= 255) {
-        try stdout.writer().writeAll("At maximum 255 arguments are supported\n");
-        process.exit(1);
-    }
 
-    var i: u64 = 1; // skip program name
-    while (i < args.len) : (i += 1) {
-        if (mem.eql(u8, args[i], "-outfile")) {
-            mode = switch (mode) {
-                Mode.ShellOutput => Mode.FileOutput,
-                Mode.ShellOutputAscii => Mode.FileOutputAscii,
-                else => try cleanup(&write_file), // hack around stage1
-            };
-            if (i + 1 >= args.len) {
-                return error.InvalidArgument;
-            }
-            i += 1;
-            write_file = try fs.cwd().createFile(args[i], .{});
-        }
-        if (mem.eql(u8, args[i], "-c")) {
-            mode = switch (mode) {
-                Mode.ShellOutput => Mode.CheckOnly,
-                Mode.ShellOutputAscii => Mode.CheckOnlyAscii,
-                else => try cleanup(&write_file), // hack around stage1
-            };
-        }
-        if (mem.eql(u8, args[i], "-a")) {
-            mode = switch (mode) {
-                Mode.ShellOutput => Mode.ShellOutputAscii,
-                Mode.CheckOnly => Mode.CheckOnlyAscii,
-                Mode.FileOutput => Mode.FileOutputAscii,
-                else => try cleanup(&write_file), // hack around stage1
-            };
-        }
-    }
-    defer if (write_file != null)
-        write_file.?.close();
-
+    defer if (write_file != null) write_file.?.close();
+    mode = try validateArgs(args, &write_file, mode);
     const ret = switch (mode) {
         // only check status
         Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
