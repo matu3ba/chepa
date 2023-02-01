@@ -105,7 +105,6 @@ const Testcases = [_]Testdata{
 
 fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [Testcases.len]*bld.RunStep {
     var tcases = Testcases;
-    _ = tcases;
     // idea: parallel test execution?
     //var prev_test_case: ?*std.build.RunStep = null;
     var test_cases: [Testcases.len]*std.build.RunStep = undefined;
@@ -141,12 +140,15 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
 
 pub fn build(b: *bld.Builder) void {
     const target = b.standardTargetOptions(.{});
-    const mode = b.standardReleaseOptions();
+    const optimize = b.standardOptimizeOption(.{});
 
     // install
-    const exe = b.addExecutable("chepa", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
+    const exe = b.addExecutable(.{
+        .name = "chepa",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
     exe.install();
 
     // run
@@ -158,18 +160,23 @@ pub fn build(b: *bld.Builder) void {
     run_cmd_step.dependOn(&run_cmd.step);
 
     // unit tests
-    const exe_tests = b.addTest("src/main.zig");
-    exe_tests.setTarget(target);
-    exe_tests.setBuildMode(mode);
+    const exe_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
 
     // build and run binary to create test folders
     // stage1: panic from build system, if executable is non-existing
     //const tfgen = b.addExecutable("tfgen", "src/testfolder_gen.zig");
-    const tfgen = b.addExecutable("tfgen", "src/testfolder_gen.zig");
-    tfgen.setTarget(target);
-    tfgen.setBuildMode(mode);
+    const tfgen = b.addExecutable(.{
+        .name = "tfgen",
+        .root_source_file = .{ .path = "src/testfolder_gen.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
     tfgen.install();
     const run_tfgen = tfgen.run(); // integration test generation
     run_tfgen.step.dependOn(b.getInstallStep());
@@ -188,9 +195,12 @@ pub fn build(b: *bld.Builder) void {
     // TODO expand build.zig: StdIoAction limits *make*, which executes *RunStep
     // => requires comptime-selection of string compare function,
 
-    const perfgen = b.addExecutable("perfgen", "src/perffolder_gen.zig");
-    perfgen.setTarget(target);
-    perfgen.setBuildMode(mode);
+    const perfgen = b.addExecutable(.{
+        .name = "perfgen",
+        .root_source_file = .{ .path = "src/perffolder_gen.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
     perfgen.install();
     const run_perfgen = perfgen.run(); // perf bench data generation
     run_perfgen.step.dependOn(b.getInstallStep());

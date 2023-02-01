@@ -713,7 +713,7 @@ pub const Mode = enum {
 // * output usable in vim and shell
 
 // perf of POSIX/Linux nftw, Rust walkdir and find are comparable.
-// zig libstd offers higher perf for less convenience with optimizations
+// zig libstd offers higher perf for less convenience
 // see https://github.com/romkatv/gitstatus/blob/master/docs/listdir.md
 // TODO benchmarks to show this
 pub fn main() !u8 {

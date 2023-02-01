@@ -72,7 +72,6 @@ pub fn charsToDigits(buf: []u8, radix: u8) (error{InvalidCharacter}!void) {
 fn add(comptime UT: type, cust_nr: []UT, base: UT, path_buf: []u8, n_pbuf: *u64, nesting: *u8) bool {
     //std.debug.print("cust_nr: {d} {d} {d}", .{ cust_nr.len, base, nesting.* });
     //return true;
-    _ = nesting;
     //std.debug.print("nesting: {d}\n", .{nesting.*});
     var carry = false;
     var index: u64 = cust_nr.len - 1;
