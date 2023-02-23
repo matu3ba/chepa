@@ -55,14 +55,14 @@ fn rmPathDir(n_pbuf: *u64, nesting: *u8) void {
 
 fn digitsToChars(buf: []u8, case: fmt.Case) void {
     var char: u8 = undefined;
-    for (buf) |digit, i| {
+    for (buf, 0..) |digit, i| {
         char = fmt.digitToChar(digit, case);
         buf[i] = char;
     }
 }
 pub fn charsToDigits(buf: []u8, radix: u8) (error{InvalidCharacter}!void) {
     var digit: u8 = undefined;
-    for (buf) |char, i| {
+    for (buf, 0..) |char, i| {
         digit = try fmt.charToDigit(char, radix);
         buf[i] = digit;
     }
