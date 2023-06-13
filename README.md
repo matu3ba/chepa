@@ -57,7 +57,6 @@ opportunity for bad practice filenames.
 - [ ] unicode test data
 - [ ] capture output of stdout: wait for testing IPC+output capture to be less annoying
       (https://github.com/ziglang/zig/pull/11138 and follow-up PRs)
-- [ ] unicode test data
 - [ ] parallelize running in multiple processes
 - [ ] other cli option to validate paths as utf8 with zigstr (complex)
 - [ ] simd?
