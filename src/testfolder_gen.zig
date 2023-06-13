@@ -51,7 +51,7 @@ fn ensureFile(path: []const u8) !void {
     };
     defer file.close();
     const stat = try file.stat();
-    if (stat.kind != .File)
+    if (stat.kind != .file)
         fatal("stat on test file '{s}' failed", .{path});
 }
 
@@ -76,7 +76,7 @@ pub fn main() !void {
         .no_follow = true,
     });
     defer test_dir.close();
-    mem.copy(u8, path_buffer[n_pbuf..], args[1]);
+    @memcpy(path_buffer[n_pbuf .. n_pbuf + args[1].len], args[1]);
     n_pbuf += args[1].len;
 
     // 2. control_sequences (0x00..0x31 and 0x7F)
@@ -84,7 +84,7 @@ pub fn main() !void {
     // and files with f_controlsequences inside folder control_sequences
     {
         const path2: []const u8 = "/control_sequences";
-        mem.copy(u8, path_buffer[n_pbuf..], path2);
+        @memcpy(path_buffer[n_pbuf .. n_pbuf + path2.len], path2);
         n_pbuf += path2.len;
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path2.len;
@@ -95,14 +95,14 @@ pub fn main() !void {
             tmpbuf[3] = 0x01;
             var i: u8 = 1;
             while (i < 32) : (i += 1) {
-                mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
                 n_pbuf += tmpbuf.len;
                 try ensureDir(path_buffer[0..n_pbuf]);
                 n_pbuf -= tmpbuf.len;
                 tmpbuf[3] = i;
             }
             tmpbuf[3] = 0x7F;
-            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
             n_pbuf += tmpbuf.len;
             try ensureDir(path_buffer[0..n_pbuf]);
             n_pbuf -= tmpbuf.len;
@@ -113,14 +113,14 @@ pub fn main() !void {
             tmpbuf[3] = 0x01;
             i = 1;
             while (i < 32) : (i += 1) {
-                mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
                 n_pbuf += tmpbuf.len;
                 try ensureFile(path_buffer[0..n_pbuf]);
                 n_pbuf -= tmpbuf.len;
                 tmpbuf[3] = i;
             }
             tmpbuf[3] = 0x7F;
-            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
             n_pbuf += tmpbuf.len;
             try ensureFile(path_buffer[0..n_pbuf]);
             n_pbuf -= tmpbuf.len;
@@ -132,7 +132,7 @@ pub fn main() !void {
     // and files with f_controlsequences inside folder control_sequences
     {
         const path3: []const u8 = "/ctrl_seq_nonewline";
-        mem.copy(u8, path_buffer[n_pbuf..], path3);
+        @memcpy(path_buffer[n_pbuf .. n_pbuf + path3.len], path3);
         n_pbuf += path3.len;
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path3.len;
@@ -144,7 +144,7 @@ pub fn main() !void {
             var i: u8 = 1;
             while (i < 32) : (i += 1) {
                 if (tmpbuf[3] != 10) { // if nr not '\n'
-                    mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                    @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
                     n_pbuf += tmpbuf.len;
                     try ensureDir(path_buffer[0..n_pbuf]);
                     n_pbuf -= tmpbuf.len;
@@ -152,7 +152,7 @@ pub fn main() !void {
                 tmpbuf[3] = i; // deferred update to exclude 32
             }
             tmpbuf[3] = 0x7F;
-            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
             n_pbuf += tmpbuf.len;
             try ensureDir(path_buffer[0..n_pbuf]);
             n_pbuf -= tmpbuf.len;
@@ -164,7 +164,7 @@ pub fn main() !void {
             i = 1;
             while (i < 32) : (i += 1) {
                 if (tmpbuf[3] != 10) { // if nr not '\n'
-                    mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+                    @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
                     n_pbuf += tmpbuf.len;
                     try ensureFile(path_buffer[0..n_pbuf]);
                     n_pbuf -= tmpbuf.len;
@@ -172,7 +172,7 @@ pub fn main() !void {
                 tmpbuf[3] = i; // deferred update to exclude 32
             }
             tmpbuf[3] = 0x7F;
-            mem.copy(u8, path_buffer[n_pbuf..], tmpbuf[0..]);
+            @memcpy(path_buffer[n_pbuf .. n_pbuf + tmpbuf.len], tmpbuf[0..]);
             n_pbuf += tmpbuf.len;
             try ensureFile(path_buffer[0..n_pbuf]);
             n_pbuf -= tmpbuf.len;
@@ -195,13 +195,13 @@ pub fn main() !void {
     };
     {
         const path3: []const u8 = "/bad_patterns";
-        mem.copy(u8, path_buffer[n_pbuf..], path3);
+        @memcpy(path_buffer[n_pbuf .. n_pbuf + path3.len], path3);
         n_pbuf += path3.len;
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path3.len;
         {
             for (bad_patterns) |pattern| {
-                mem.copy(u8, path_buffer[n_pbuf..], pattern[0..]);
+                @memcpy(path_buffer[n_pbuf .. n_pbuf + pattern.len], pattern[0..]);
                 n_pbuf += pattern.len;
                 try ensureDir(path_buffer[0..n_pbuf]);
                 n_pbuf -= pattern.len;

@@ -37,7 +37,7 @@ fn addEnsurePathDir(path_buf: []u8, n_pbuf: *u64, nr: u8, nesting: *u8) !void {
     // workaround: comptime-connect strings with start and end offset
     // "continuous enum" => number*2 => (start,end) into static buffer for entries
     const str_nr: []const u8 = &[2]u8{ slash, nr };
-    mem.copy(u8, path_buf[n_pbuf.*..], str_nr);
+    @memcpy(path_buf[n_pbuf.* .. n_pbuf.* + str_nr.len], str_nr);
     n_pbuf.* += str_nr.len;
     try ensureDir(path_buf[0..n_pbuf.*]);
     //std.debug.print("addEnsurePathDir\n", .{});
@@ -77,7 +77,7 @@ fn add(comptime UT: type, cust_nr: []UT, base: UT, path_buf: []u8, n_pbuf: *u64,
     var index: u64 = cust_nr.len - 1;
     // get first index from right-hand side that can be updated
     while (index > 0) : (index -= 1) {
-        var added_val = cust_nr[index] + 1;
+        const added_val = cust_nr[index] + 1;
         if (added_val == base) {
             carry = true;
         } else {
@@ -158,14 +158,14 @@ pub fn main() !void {
         .no_follow = true,
     });
     defer test_dir.close();
-    mem.copy(u8, path_buffer[n_pbuf..], args[1]);
+    @memcpy(path_buffer[n_pbuf .. n_pbuf + args[1].len], args[1]);
     n_pbuf += args[1].len;
 
     // 1.1 base_perf
     // because we need to store where what number overlfowed
     {
         const path1: []const u8 = "/base_perf";
-        mem.copy(u8, path_buffer[n_pbuf..], path1);
+        @memcpy(path_buffer[n_pbuf .. n_pbuf + path1.len], path1);
         n_pbuf += path1.len;
         try ensureDir(path_buffer[0..n_pbuf]);
         defer n_pbuf -= path1.len;

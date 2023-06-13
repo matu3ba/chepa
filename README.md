@@ -5,7 +5,7 @@ alpha status with output and utf8 parts not yet being fully tested.
 
 ## use cases
 - use case 1: check for ASCII control characters
-- use case 2: check for bad practice file- and foldernames
+- use case 2: check for bad practice file- and directory names
 - use case 3: check for `POSIX portable file name character set` and
   POSIX path length (will be split later)
 - use case 4: check for a sane UTF8 subset without empty spaces
@@ -42,9 +42,9 @@ opportunity for bad practice filenames.
 ## todos
 - [x] use case 1
 - [x] zig build
-- [x] test base perf: 10000 folders each with 0 or 10 subfolders
-- [x] test control sequences: add such folders (fix #10920 to have nicer solution)
-- [x] test bad patterns: add such folders
+- [x] test base perf: 10000 directories each with 0 or 10 subdirectories
+- [x] test control sequences: add such directories (fix #10920 to have nicer solution)
+- [x] test bad patterns: add such directories
 - [x] cli `-outfile`
 - [x] use case 2
 - [x] use case 3
@@ -83,7 +83,7 @@ Alternatively, shells must define a fast alternative program interface that does
 not rely on spaces for command separation.
 
 ## notes
-Example for bad practice file- and foldernames are
+Example for bad practice file- and directory names are
   ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
 
 The `POSIX portable file name character set` consists of
@@ -103,7 +103,7 @@ d_\n     d_\u{1}  d_\u{5}  d_\u{e}   d_\u{12}  d_\u{16}  d_\u{1a}  d_\u{1e}
 d_\t     d_\u{2}  d_\u{6}  d_\u{f}   d_\u{13}  d_\u{17}  d_\u{1b}  d_\u{7f}
 d_\u{c}  d_\u{3}  d_\u{7}  d_\u{10}  d_\u{14}  d_\u{18}  d_\u{1c}
 ```
-`0x0` should crash the file/folder generation command.
+`0x0` should crash the file/directory generation command.
 
 Problems for storing problems for user-inspection and usage in tools
 * file/directory may have `'` or `\n`
@@ -185,13 +185,8 @@ E0001         ; Deprecated # Cf       LANGUAGE TAG
 
 #### comparison of (non-fully optimized) unicode decoding
 created via lib/std/unicode/throughput_test.zig:
-short ASCII strings
-  count:    84 MiB/s [3]
-short Unicode strings
-  count:   126 MiB/s [3]
-pure ASCII strings
-  count:  1770 MiB/s [80]
-pure Unicode strings
-  count:   370 MiB/s [80]
-mixed ASCII/Unicode strings
-  count:   522 MiB/s [224]
+* short ASCII strings count:    84 MiB/s [3]
+* short Unicode strings count:   126 MiB/s [3]
+* pure ASCII strings count:  1770 MiB/s [80]
+* pure Unicode strings count:   370 MiB/s [80]
+* mixed ASCII/Unicode strings count:   522 MiB/s [224]

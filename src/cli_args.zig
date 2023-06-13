@@ -102,7 +102,7 @@ fn cleanup(write_file: *?fs.File) !Mode {
 /// TODO: How to ensure process.exit is never used as return status of zig error codes?
 pub fn validateArgs(args: [][:0]u8, write_file_in: *?fs.File, mode_in: Mode) !Mode {
     var mode: Mode = mode_in; // default execution mode
-    var write_file: *?fs.File = write_file_in;
+    const write_file: *?fs.File = write_file_in;
     if (args.len <= 1) {
         try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
         process.exit(1);

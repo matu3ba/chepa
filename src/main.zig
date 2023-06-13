@@ -125,7 +125,7 @@ fn isWordOkAsciiExtended(word: []const u8) StatusOkAsciiExt {
     return status;
 }
 
-inline fn skipItIfWindows(it: *mem.TokenIterator(u8)) void {
+inline fn skipItIfWindows(it: *mem.TokenIterator(u8, .any)) void {
     const native_os = builtin.target.os.tag;
     switch (native_os) {
         .windows => {
@@ -167,7 +167,7 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
                 },
             }
         }
-        var root_dir = try fs.cwd().openIterableDir(root_path, .{ .no_follow = true });
+        var root_dir = try fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true });
         defer root_dir.close();
         var walker = try root_dir.walk(arena);
         defer walker.deinit();
@@ -572,7 +572,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
         }
 
         //log.debug("reading (recursively) file '{s}'", .{root_path});
-        var root_dir = fs.cwd().openIterableDir(root_path, .{ .no_follow = true }) catch |err| {
+        var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
             if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) file.close();
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),

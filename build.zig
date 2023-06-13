@@ -1,11 +1,10 @@
 const std = @import("std");
-const bld = std.build;
 const main = @import("src/main.zig");
 const Mode = main.Mode;
 
 const Testdata = struct {
     mode: Mode,
-    foldername: []const u8,
+    dirpath: []const u8,
     exp_exit_code: u8,
 };
 // 0123, 3 only with file output, 01 only with check
@@ -13,109 +12,109 @@ const Testcases = [_]Testdata{
     // TODO utf8 control sequences, deprecated characters
     // => question: how to write the test cases?
     // TODO pipe stdout
-    Testdata{ .mode = .CheckOnly, .foldername = "zig-out/", .exp_exit_code = 0 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x02", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x03", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x04", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x05", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x06", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x07", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x08", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x09", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x1c", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x1d", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x1e", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x1f", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/f_\x20", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnly, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x01", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x02", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x03", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x04", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x05", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x06", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x07", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x08", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x09", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x1c", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x1d", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x1e", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x1f", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/f_\x20", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnly, .dirpath = "test_folders/control_sequences/", .exp_exit_code = 1 },
 
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 1 },
-    Testdata{ .mode = .CheckOnlyAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/control_sequences/f_\x01", .exp_exit_code = 1 },
+    Testdata{ .mode = .CheckOnlyAscii, .dirpath = "test_folders/control_sequences/", .exp_exit_code = 1 },
 
-    Testdata{ .mode = .ShellOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
-    Testdata{ .mode = .ShellOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
+    Testdata{ .mode = .ShellOutput, .dirpath = "test_folders/control_sequences/", .exp_exit_code = 2 },
 
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
-    Testdata{ .mode = .ShellOutputAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 2 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
+    Testdata{ .mode = .ShellOutputAscii, .dirpath = "test_folders/control_sequences/", .exp_exit_code = 2 },
 
-    Testdata{ .mode = .FileOutput, .foldername = "zig-out/", .exp_exit_code = 0 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
-    Testdata{ .mode = .FileOutput, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
+    Testdata{ .mode = .FileOutput, .dirpath = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
+    Testdata{ .mode = .FileOutput, .dirpath = "test_folders/control_sequences/", .exp_exit_code = 3 },
 
-    Testdata{ .mode = .FileOutputAscii, .foldername = "zig-out/", .exp_exit_code = 0 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
-    Testdata{ .mode = .FileOutputAscii, .foldername = "test_folders/control_sequences/", .exp_exit_code = 3 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "zig-out/", .exp_exit_code = 0 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/-fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/--fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/~fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/ fname", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/fname ", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/fname1 -fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/bad_patterns/fname1 ~fname2", .exp_exit_code = 1 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/ctrl_seq_nonewline/", .exp_exit_code = 2 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/control_sequences/f_\x01", .exp_exit_code = 2 },
+    Testdata{ .mode = .FileOutputAscii, .dirpath = "test_folders/control_sequences/", .exp_exit_code = 3 },
 };
 
-fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [Testcases.len]*bld.RunStep {
-    var tcases = Testcases;
+fn createTests(b: *std.Build, exe: *std.Build.Step.Compile, dep_step: *std.Build.Step) [Testcases.len]*std.Build.Step.Run {
+    const tcases = Testcases;
     // idea: parallel test execution?
     //var prev_test_case: ?*std.build.RunStep = null;
-    var test_cases: [Testcases.len]*std.build.RunStep = undefined;
+    var test_cases: [Testcases.len]*std.Build.Step.Run = undefined;
     for (tcases, 0..) |_, i| {
-        test_cases[i] = exe.run(); // *RunStep
-        test_cases[i].expected_term = .{ .Exited = tcases[i].exp_exit_code };
+        test_cases[i] = b.addRunArtifact(exe); // *RunStep
+        test_cases[i].expectExitCode(tcases[i].exp_exit_code);
         test_cases[i].step.dependOn(dep_step);
         //        if (prev_test_case != null)
         //            test_cases[i].step.dependOn(&(prev_test_case.?.step));
         //
-        const inttest_arg = b.pathJoin(&.{ b.build_root.path.?, tcases[i].foldername });
+        const inttest_arg = b.pathJoin(&.{ b.build_root.path.?, tcases[i].dirpath });
         test_cases[i].addArgs(&.{inttest_arg});
         switch (tcases[i].mode) {
             Mode.CheckOnly => test_cases[i].addArgs(&.{"-c"}),
@@ -138,7 +137,7 @@ fn createTests(b: *bld.Builder, exe: *bld.LibExeObjStep, dep_step: *bld.Step) [T
     return test_cases;
 }
 
-pub fn build(b: *bld.Builder) void {
+pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -149,10 +148,10 @@ pub fn build(b: *bld.Builder) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.install();
+    b.installArtifact(exe);
 
     // run
-    const run_cmd = exe.run();
+    const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args|
         run_cmd.addArgs(args);
@@ -177,8 +176,8 @@ pub fn build(b: *bld.Builder) void {
         .target = target,
         .optimize = optimize,
     });
-    tfgen.install();
-    const run_tfgen = tfgen.run(); // integration test generation
+    b.installArtifact(tfgen);
+    const run_tfgen = b.addRunArtifact(tfgen); // integration test generation
     run_tfgen.step.dependOn(b.getInstallStep());
     const tfgen_arg = b.pathJoin(&.{ b.build_root.path.?, "test_folders" });
     run_tfgen.addArgs(&.{tfgen_arg});
@@ -188,8 +187,11 @@ pub fn build(b: *bld.Builder) void {
     const run_inttest_step = b.step("inttest", "Run integration tests");
     const testdata = createTests(b, exe, run_tfgen_step);
     // idea: how to enumerate test sequences?
-    for (testdata) |single_test| {
-        run_inttest_step.dependOn(&single_test.step);
+
+    // workaround https://github.com/ziglang/zig/issues/14734
+    var i: u64 = 0;
+    while (i < testdata.len) : (i += 1) {
+        run_inttest_step.dependOn(&testdata[i].step);
     }
 
     // TODO expand build.zig: StdIoAction limits *make*, which executes *RunStep
@@ -201,8 +203,8 @@ pub fn build(b: *bld.Builder) void {
         .target = target,
         .optimize = optimize,
     });
-    perfgen.install();
-    const run_perfgen = perfgen.run(); // perf bench data generation
+    b.installArtifact(perfgen);
+    const run_perfgen = b.addRunArtifact(perfgen); // perf bench data generationn
     run_perfgen.step.dependOn(b.getInstallStep());
     const perfgen_arg = b.pathJoin(&.{ b.build_root.path.?, "perf_folders" });
     run_perfgen.addArgs(&.{perfgen_arg});
