@@ -1,4 +1,4 @@
-//! program to ensure folder structure for tests on disk
+//! program to ensure directory structure for tests on disk
 const std = @import("std");
 const Barr = std.BoundedArray;
 const fmt = std.fmt;
@@ -8,7 +8,7 @@ const os = std.os;
 const process = std.process;
 const stdout = std.io.getStdOut();
 
-// 1. ensure test_folders existence
+// 1. ensure test_directories existence
 // 2. control_sequences 0x00..0x31 and 0x7F
 // 3. bad_patterns like ' filename', 'filename ', '~filename', '-filename', 'f1 -f2'
 // * test code __can not__ ensure traversal order
@@ -70,7 +70,7 @@ pub fn main() !void {
         try stdout.writer().print("To create test at path, run in shell: {s} {s}\n", .{ args[0], usage });
         std.process.exit(1);
     }
-    // 1. folders for tests
+    // 1. directories for tests
     try ensureDir(args[1]);
     var test_dir = try std.fs.cwd().openDir(args[1], .{
         .no_follow = true,
@@ -81,7 +81,7 @@ pub fn main() !void {
 
     // 2. control_sequences (0x00..0x31 and 0x7F)
     // to keep things simple, we create direcories with d_controlsequence
-    // and files with f_controlsequences inside folder control_sequences
+    // and files with f_controlsequences inside directory control_sequences
     {
         const path2: []const u8 = "/control_sequences";
         @memcpy(path_buffer[n_pbuf .. n_pbuf + path2.len], path2);
@@ -129,7 +129,7 @@ pub fn main() !void {
 
     // 3. control_sequences (0x00..0x31 and 0x7F without newline \n 0x0a)
     // to keep things simple, we create direcories with d_controlsequence
-    // and files with f_controlsequences inside folder control_sequences
+    // and files with f_controlsequences inside directory control_sequences
     {
         const path3: []const u8 = "/ctrl_seq_nonewline";
         @memcpy(path_buffer[n_pbuf .. n_pbuf + path3.len], path3);
@@ -215,7 +215,7 @@ pub fn main() !void {
 test "use of realpath instead of realpathAlloc" {
     // to be called after running `zig test tfgen`
     // realpath utilizes the cwd() of the current process (undocumented in libstd)
-    const path_name: []const u8 = "test_folders/bad_patterns/ fname/.."; // adding \x00 breaks things
+    const path_name: []const u8 = "test_directories/bad_patterns/ fname/.."; // adding \x00 breaks things
     var out_buf: [4096]u8 = undefined;
     const real_path = try os.realpath(path_name, &out_buf); // works
     std.debug.print("real_path: {s}\n", .{real_path});

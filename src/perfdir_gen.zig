@@ -1,4 +1,4 @@
-//! program to ensure folder structure for perfance benchmarks on disk
+//! program to ensure directory structure for perfance benchmarks on disk
 const std = @import("std");
 const Barr = std.BoundedArray;
 const fmt = std.fmt;
@@ -149,10 +149,10 @@ pub fn main() !void {
         std.debug.print("{s}\n", .{arg});
     }
     if (args.len != 2) {
-        try stdout.writer().print("To create folders for perf benchmark at path, run in shell: {s} {s}\n", .{ args[0], usage });
+        try stdout.writer().print("To create directories for perf benchmark at path, run in shell: {s} {s}\n", .{ args[0], usage });
         std.process.exit(1);
     }
-    // 1. folders for perf benchmarks
+    // 1. directories for perf benchmarks
     try ensureDir(args[1]);
     var test_dir = try std.fs.cwd().openDir(args[1], .{
         .no_follow = true,
