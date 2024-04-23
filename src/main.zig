@@ -460,7 +460,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
         {
             // ensure that super path does not contain any
             // control characters, that might get printed later
-            const real_path = try os.realpath(root_path, &tmp_buf);
+            const real_path = try fs.realpath(root_path, &tmp_buf);
             var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
             skipItIfWindows(&it);
             while (it.next()) |entry| {
