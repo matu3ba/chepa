@@ -6,7 +6,6 @@ const log = std.log;
 const mem = std.mem;
 const os = std.os;
 const process = std.process;
-const stdout = std.io.getStdOut();
 
 // 1. ensure test_directories existence
 // 2. control_sequences 0x00..0x31 and 0x7F
@@ -56,6 +55,7 @@ fn ensureFile(path: []const u8) !void {
 }
 
 pub fn main() !void {
+    const stdout = std.io.getStdOut();
     var path_buffer: [1000]u8 = undefined;
     var n_pbuf: u64 = 0; // next free position
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);

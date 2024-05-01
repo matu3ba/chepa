@@ -6,8 +6,6 @@ const fs = std.fs;
 const mem = std.mem;
 
 const Mode = main.Mode;
-const stdout = std.io.getStdOut();
-const stderr = std.io.getStdErr();
 const process = std.process;
 
 const usage: []const u8 =
@@ -101,6 +99,7 @@ fn cleanup(write_file: *?fs.File) !Mode {
 /// Check input arguments for correctness and stop early.
 /// TODO: How to ensure process.exit is never used as return status of zig error codes?
 pub fn validateArgs(args: [][:0]u8, write_file_in: *?fs.File, mode_in: Mode) !Mode {
+    const stdout = std.io.getStdOut();
     var mode: Mode = mode_in; // default execution mode
     const write_file: *?fs.File = write_file_in;
     if (args.len <= 1) {

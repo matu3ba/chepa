@@ -6,7 +6,6 @@ const log = std.log;
 const mem = std.mem;
 const os = std.os;
 const process = std.process;
-const stdout = std.io.getStdOut();
 
 const usage: []const u8 =
     \\ path
@@ -129,6 +128,7 @@ fn add(comptime UT: type, cust_nr: []UT, base: UT, path_buf: []u8, n_pbuf: *u64,
 }
 
 fn printCustomNr(comptime UT: type, cust_nr: []UT) !void {
+    const stdout = std.io.getStdOut();
     try stdout.writeAll("created ");
     const case = fmt.Case.lower;
     digitsToChars(cust_nr, case);
@@ -138,6 +138,7 @@ fn printCustomNr(comptime UT: type, cust_nr: []UT) !void {
 }
 
 pub fn main() !void {
+    const stdout = std.io.getStdOut();
     var path_buffer: [1000]u8 = undefined;
     var n_pbuf: u64 = 0; // next free position
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);

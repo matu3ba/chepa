@@ -9,9 +9,6 @@ const process = std.process;
 const unicode = std.unicode;
 const testing = std.testing;
 
-const stdout = std.io.getStdOut();
-const stderr = std.io.getStdErr();
-
 const cli_args = @import("cli_args.zig");
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
@@ -126,12 +123,16 @@ fn isWordOkAsciiExtended(word: []const u8) StatusOkAsciiExt {
 }
 
 inline fn skipItIfWindows(it: *mem.TokenIterator(u8, .any)) void {
+    // TODO FIXME: This does not check, that we have DOS paths
     const native_os = builtin.target.os.tag;
     switch (native_os) {
         .windows => {
             if (0x61 <= it.buffer[0] and it.buffer[0] <= 0x7A // A-Z
             and it.buffer[1] == ':') {
-                it.next();
+                const n = it.next();
+                if (n == null) {
+                    @panic("drive path not supported, only DOS paths are supported");
+                }
             }
         },
         else => {},
@@ -729,6 +730,9 @@ pub fn main() !u8 {
 
     defer if (write_file != null) write_file.?.close();
     mode = try cli_args.validateArgs(args, &write_file, mode);
+    const stdout = std.io.getStdOut();
+    // const stderr = std.io.getStdErr();
+
     const ret = switch (mode) {
         // only check status
         Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
