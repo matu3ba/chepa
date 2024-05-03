@@ -93,10 +93,10 @@ fn isWordOkAsciiExtended(word: []const u8) StatusOkAsciiExt {
             0...9 => {
                 status = StatusOkAsciiExt.CntrlChar;
             }, // Cntrl (includes '\n', '\r', '\t')
-            10 => {
+            10, 13 => {
                 return StatusOkAsciiExt.Newline;
             }, // Line Feed '\n'
-            11...31 => {
+            11, 12, 14...31 => {
                 status = StatusOkAsciiExt.CntrlChar;
             }, // Cntrl (includes '\n', '\r', '\t')
             ',', '`' => {
@@ -291,10 +291,10 @@ fn isWordOkExtended(word: []const u8) StatusOkExt {
                     0...9 => {
                         status = StatusOkExt.CntrlChar;
                     }, // Cntrl (includes '\n', '\r', '\t')
-                    10 => {
+                    10, 13 => {
                         return StatusOkExt.Newline;
                     }, // Line Feed '\n'
-                    11...31 => {
+                    11, 12, 14...31 => {
                         status = StatusOkExt.CntrlChar;
                     }, // Cntrl (includes '\n', '\r', '\t')
                     ',', '`' => {
