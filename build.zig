@@ -8,6 +8,7 @@ const Testdata = struct {
     exp_exit_code: u8,
 };
 // 0123, 3 only with file output, 01 only with check
+// TODO behavior on multiple errors: priority for exit code?
 const Testcases = [_]Testdata{
     // TODO utf8 control sequences, deprecated characters
     // => question: how to write the test cases?
@@ -144,7 +145,7 @@ pub fn build(b: *std.Build) void {
     // install
     const exe = b.addExecutable(.{
         .name = "chepa",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -160,7 +161,7 @@ pub fn build(b: *std.Build) void {
 
     // unit tests
     const exe_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -170,7 +171,7 @@ pub fn build(b: *std.Build) void {
     // build and run binary to create test dirs
     const tfgen = b.addExecutable(.{
         .name = "tfgen",
-        .root_source_file = .{ .path = "src/testdir_gen.zig" },
+        .root_source_file = b.path("src/testdir_gen.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -197,7 +198,7 @@ pub fn build(b: *std.Build) void {
 
     const perfgen = b.addExecutable(.{
         .name = "perfgen",
-        .root_source_file = .{ .path = "src/perfdir_gen.zig" },
+        .root_source_file = b.path("src/perfdir_gen.zig"),
         .target = target,
         .optimize = optimize,
     });
