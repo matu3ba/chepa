@@ -154,7 +154,7 @@ fn checkOnly(comptime enc: Encoding, arena: mem.Allocator, args: [][:0]u8) !u8 {
         if (mem.eql(u8, args[i], "-c")) // skip -c
             continue;
         const root_path = args[i];
-        var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
+        var it = mem.tokenizeAny(u8, root_path, &[_]u8{fs.path.sep});
         skipItIfWindows(&it);
         while (it.next()) |entry| {
             std.debug.assert(entry.len > 0);
@@ -439,7 +439,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
     var found_newline = false; // unused for ShellOutputAscii, ShellOutput
 
     // tmp data for realpath(), never to be references otherwise
-    var tmp_buf: [fs.MAX_PATH_BYTES]u8 = undefined;
+    var tmp_buf: [fs.max_path_bytes]u8 = undefined;
     const cwd = try process.getCwdAlloc(arena); // windows compatibility
     defer arena.free(cwd);
 
@@ -461,7 +461,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
             // ensure that super path does not contain any
             // control characters, that might get printed later
             const real_path = try fs.realpath(root_path, &tmp_buf);
-            var it = mem.tokenize(u8, root_path, &[_]u8{fs.path.sep});
+            var it = mem.tokenizeAny(u8, root_path, &[_]u8{fs.path.sep});
             skipItIfWindows(&it);
             while (it.next()) |entry| {
                 std.debug.assert(entry.len > 0);
