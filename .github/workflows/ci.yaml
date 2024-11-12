@@ -21,11 +21,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: mlugg/setup-zig@v1
         with:
           version: master
-          cache: false
+          mirror: 'https://pkg.machengine.org/zig'
 
       - run: zig env
 
