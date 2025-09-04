@@ -127,18 +127,19 @@ fn add(comptime UT: type, cust_nr: []UT, base: UT, path_buf: []u8, n_pbuf: *u64,
     return true;
 }
 
-fn printCustomNr(comptime UT: type, cust_nr: []UT) !void {
-    const stdout = std.io.getStdOut();
-    try stdout.writeAll("created ");
+fn printCustomNr(writer: *std.Io.Writer, comptime UT: type, cust_nr: []UT) !void {
+    try writer.writeAll("created ");
     const case = fmt.Case.lower;
     digitsToChars(cust_nr, case);
-    try stdout.writeAll(cust_nr);
+    try writer.writeAll(cust_nr);
     try charsToDigits(cust_nr, 11); // invalidate digits > 10
-    try stdout.writeAll(" +1 direcories\n");
+    try writer.writeAll(" +1 direcories\n");
 }
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut();
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
     var path_buffer: [1000]u8 = undefined;
     var n_pbuf: u64 = 0; // next free position
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -150,7 +151,8 @@ pub fn main() !void {
         std.debug.print("{s}\n", .{arg});
     }
     if (args.len != 2) {
-        try stdout.writer().print("To create directories for perf benchmark at path, run in shell: {s} {s}\n", .{ args[0], usage });
+        try stdout.print("To create directories for perf benchmark at path, run in shell: {s} {s}\n", .{ args[0], usage });
+        try stdout.flush();
         std.process.exit(1);
     }
     // 1. directories for perf benchmarks
@@ -191,7 +193,9 @@ pub fn main() !void {
                 i += 1;
                 std.debug.assert(i < 1_000_000);
             }
-            try printCustomNr(u8, &cust_nr);
+            try printCustomNr(stdout, u8, &cust_nr);
+            try stdout.flush();
+
             i = 0;
             while (i < cust_nr.len) : (i += 1) {
                 rmPathDir(&n_pbuf, &nesting);

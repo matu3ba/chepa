@@ -97,17 +97,15 @@ fn cleanup(write_file: *?fs.File) !Mode {
 }
 
 /// Check input arguments for correctness and stop early.
-/// TODO: How to ensure process.exit is never used as return status of zig error codes?
-pub fn validateArgs(args: [][:0]u8, write_file_in: *?fs.File, mode_in: Mode) !Mode {
-    const stdout = std.io.getStdOut();
+pub fn validateArgs(stdout: *std.Io.Writer, args: [][:0]u8, write_file_in: *?fs.File, mode_in: Mode) !Mode {
     var mode: Mode = mode_in; // default execution mode
     const write_file: *?fs.File = write_file_in;
     if (args.len <= 1) {
-        try stdout.writer().print("Usage: {s} {s}\n", .{ args[0], usage });
+        try stdout.print("Usage: {s} {s}\n", .{ args[0], usage });
         process.exit(1);
     }
     if (args.len >= 255) {
-        try stdout.writer().writeAll("At maximum 255 arguments are supported\n");
+        try stdout.writeAll("At maximum 255 arguments are supported\n");
         process.exit(1);
     }
     var i: u64 = 1; // skip program name

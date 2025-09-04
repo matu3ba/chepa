@@ -55,7 +55,9 @@ fn ensureFile(path: []const u8) !void {
 }
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut();
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
     var path_buffer: [1000]u8 = undefined;
     var n_pbuf: u64 = 0; // next free position
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -67,7 +69,8 @@ pub fn main() !void {
         std.debug.print("{s}\n", .{arg});
     }
     if (args.len != 2) {
-        try stdout.writer().print("To create test at path, run in shell: {s} {s}\n", .{ args[0], usage });
+        try stdout.print("To create test at path, run in shell: {s} {s}\n", .{ args[0], usage });
+        try stdout.flush();
         std.process.exit(1);
     }
     // 1. directories for tests
@@ -209,7 +212,8 @@ pub fn main() !void {
         }
     }
 
-    try stdout.writer().print("test creation finished\n", .{});
+    try stdout.print("test creation finished\n", .{});
+    try stdout.flush();
 }
 
 test "use of realpath instead of realpathAlloc" {

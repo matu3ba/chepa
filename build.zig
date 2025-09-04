@@ -122,12 +122,12 @@ fn createTests(b: *std.Build, exe: *std.Build.Step.Compile, dep_step: *std.Build
             Mode.CheckOnlyAscii => test_cases[i].addArgs(&.{ "-a", "-c" }),
             Mode.FileOutput => {
                 // multiple executables write same file
-                const tmpfile_path = b.pathJoin(&.{ b.build_root.path.?, "zig-cache/tmp/inttest.txt" });
+                const tmpfile_path = b.pathJoin(&.{ b.build_root.path.?, ".zig-cache/tmp/inttest.txt" });
                 test_cases[i].addArgs(&.{ "-outfile", tmpfile_path });
             },
             Mode.FileOutputAscii => {
                 // multiple executables write same file
-                const tmpfile_path = b.pathJoin(&.{ b.build_root.path.?, "zig-cache/tmp/inttest.txt" });
+                const tmpfile_path = b.pathJoin(&.{ b.build_root.path.?, ".zig-cache/tmp/inttest.txt" });
                 test_cases[i].addArgs(&.{ "-a", "-outfile", tmpfile_path });
             },
             Mode.ShellOutput => {},
@@ -145,9 +145,11 @@ pub fn build(b: *std.Build) void {
     // install
     const exe = b.addExecutable(.{
         .name = "chepa",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .root_source_file = b.path("src/main.zig"),
+        }),
     });
     b.installArtifact(exe);
 
@@ -161,9 +163,11 @@ pub fn build(b: *std.Build) void {
 
     // unit tests
     const exe_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
@@ -171,9 +175,11 @@ pub fn build(b: *std.Build) void {
     // build and run binary to create test dirs
     const tfgen = b.addExecutable(.{
         .name = "tfgen",
-        .root_source_file = b.path("src/testdir_gen.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/testdir_gen.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     b.installArtifact(tfgen);
     const run_tfgen = b.addRunArtifact(tfgen); // integration test generation
@@ -198,9 +204,11 @@ pub fn build(b: *std.Build) void {
 
     const perfgen = b.addExecutable(.{
         .name = "perfgen",
-        .root_source_file = b.path("src/perfdir_gen.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/perfdir_gen.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     b.installArtifact(perfgen);
     const run_perfgen = b.addRunArtifact(perfgen); // perf bench data generationn

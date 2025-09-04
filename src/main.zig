@@ -366,7 +366,7 @@ fn writeRes(
     comptime phase: Phase,
     comptime mode: Mode,
     nl_ctrl: bool,
-    file: *const fs.File,
+    file: *std.Io.Writer,
     abs_path: []const u8,
     short_path: []const u8,
 ) !void {
@@ -433,7 +433,7 @@ fn writeRes(
 }
 
 // writes output to File (stdout, open file etc)
-fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, args: [][:0]u8) !u8 {
+fn writeOutput(comptime mode: Mode, writer: *std.Io.Writer, arena: mem.Allocator, args: [][:0]u8) !u8 {
     std.debug.assert(mode != Mode.CheckOnly and mode != Mode.CheckOnlyAscii);
     const max_msg: u32 = 30; // unused for FileOutputAscii, FileOutput
     var cnt_msg: u32 = 0; // unused for FileOutputAscii, FileOutput
@@ -487,16 +487,16 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                         }
                         const arg_decision =
                             switch (mode) {
-                            Mode.FileOutputAscii => has_newline,
-                            Mode.ShellOutputAscii => has_ctrlchars,
-                            else => unreachable,
-                        };
+                                Mode.FileOutputAscii => has_newline,
+                                Mode.ShellOutputAscii => has_ctrlchars,
+                                else => unreachable,
+                            };
                         if (status != StatusOkAsciiExt.Ok) {
                             try writeRes(
                                 Phase.RootPath,
                                 mode,
                                 arg_decision,
-                                file,
+                                writer,
                                 real_path,
                                 root_path,
                             );
@@ -533,22 +533,22 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
                             },
                             StatusOkExt.InvalUnicode => {
                                 if (mode == Mode.ShellOutput or mode == Mode.ShellOutputAscii)
-                                    try file.writeAll("root path has invalid unicode!\n");
+                                    try writer.writeAll("root path has invalid unicode!\n");
                                 return 4;
                             },
                         }
                         const arg_decision =
                             switch (mode) {
-                            Mode.FileOutput => has_newline,
-                            Mode.ShellOutput => has_ctrlchars,
-                            else => unreachable,
-                        };
+                                Mode.FileOutput => has_newline,
+                                Mode.ShellOutput => has_ctrlchars,
+                                else => unreachable,
+                            };
                         if (status != StatusOkExt.Ok) {
                             try writeRes(
                                 Phase.RootPath,
                                 mode,
                                 arg_decision,
-                                file,
+                                writer,
                                 real_path,
                                 root_path,
                             );
@@ -574,7 +574,7 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
 
         //log.debug("reading (recursively) file '{s}'", .{root_path});
         var root_dir = fs.cwd().openDir(root_path, .{ .iterate = true, .no_follow = true }) catch |err| {
-            if (mode == Mode.FileOutput or mode == Mode.FileOutputAscii) file.close();
+            // crashing, so closing files not necessary
             fatal("unable to open root directory '{s}': {s}", .{
                 root_path, @errorName(err),
             });
@@ -629,18 +629,18 @@ fn writeOutput(comptime mode: Mode, file: *const fs.File, arena: mem.Allocator, 
 
                     const arg_decision =
                         switch (mode) {
-                        Mode.FileOutput => has_newline,
-                        Mode.FileOutputAscii => has_newline,
-                        Mode.ShellOutput => has_ctrlchars,
-                        Mode.ShellOutputAscii => has_ctrlchars,
-                        else => unreachable,
-                    };
+                            Mode.FileOutput => has_newline,
+                            Mode.FileOutputAscii => has_newline,
+                            Mode.ShellOutput => has_ctrlchars,
+                            Mode.ShellOutputAscii => has_ctrlchars,
+                            else => unreachable,
+                        };
                     if (status != StatusOkAsciiExt.Ok) {
                         try writeRes(
                             Phase.ChildPaths,
                             mode,
                             arg_decision,
-                            file,
+                            writer,
                             rl_sup_dir_rel,
                             entry.path,
                         );
@@ -718,6 +718,10 @@ pub const Mode = enum {
 // see https://github.com/romkatv/gitstatus/blob/master/docs/listdir.md
 // TODO benchmarks to show this
 pub fn main() !u8 {
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
     // 1. read path names from cli args
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_instance.deinit();
@@ -729,20 +733,18 @@ pub fn main() !u8 {
     defer process.argsFree(arena, args);
 
     defer if (write_file != null) write_file.?.close();
-    mode = try cli_args.validateArgs(args, &write_file, mode);
-    const stdout = std.io.getStdOut();
-    // const stderr = std.io.getStdErr();
+    mode = try cli_args.validateArgs(stdout, args, &write_file, mode);
 
     const ret = switch (mode) {
         // only check status
         Mode.CheckOnly => try checkOnly(Encoding.Utf8, arena, args),
         Mode.CheckOnlyAscii => try checkOnly(Encoding.Ascii, arena, args),
         // shell output => capped at 30 lines
-        Mode.ShellOutput => try writeOutput(Mode.ShellOutput, &stdout, arena, args),
-        Mode.ShellOutputAscii => try writeOutput(Mode.ShellOutputAscii, &stdout, arena, args),
+        Mode.ShellOutput => try writeOutput(Mode.ShellOutput, stdout, arena, args),
+        Mode.ShellOutputAscii => try writeOutput(Mode.ShellOutputAscii, stdout, arena, args),
         // file output => files with '\n' marked
-        Mode.FileOutput => try writeOutput(Mode.FileOutput, &(write_file.?), arena, args),
-        Mode.FileOutputAscii => try writeOutput(Mode.FileOutputAscii, &(write_file.?), arena, args),
+        Mode.FileOutput => try writeOutput(Mode.FileOutput, stdout, arena, args),
+        Mode.FileOutputAscii => try writeOutput(Mode.FileOutputAscii, stdout, arena, args),
     };
     // TODO close file on error
     return ret;
